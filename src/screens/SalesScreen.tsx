@@ -17,50 +17,16 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAppStore, Sale } from '../store/useAppStore';
+import { usePricing } from '../hooks/usePricing';
 
 export default function SalesScreen() {
-  const { sales, addSale, removeSale, products, ingredients, packagings, recipes, settings } = useAppStore();
+  const { sales, addSale, removeSale, products, ingredients, packagings, recipes, updateIngredient, updatePackaging } = useAppStore();
+  const { getProductUnitCost, getSuggestedPrice } = usePricing();
   
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState('');
   const [salePrice, setSalePrice] = useState('');
-
-  // Calcula o custo total de um produto na hora da venda para calcularmos o lucro
-  const getProductTotalCost = (productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return 0;
-
-    const totalHoursMonth = settings.hoursPerDay * settings.daysPerWeek * 4;
-    const hourlyRate = totalHoursMonth > 0 ? (settings.salary / totalHoursMonth) : 0;
-
-    const materialCost = product.components.reduce((acc, comp) => {
-      let costPerUnit = 0;
-      if (comp.type === 'ingredient') {
-        const ing = ingredients.find(i => i.id === comp.componentId);
-        if (ing && ing.quantity > 0) costPerUnit = ing.price / ing.quantity;
-      } else if (comp.type === 'packaging') {
-        const pkg = packagings.find(p => p.id === comp.componentId);
-        if (pkg && pkg.quantity > 0) costPerUnit = pkg.price / pkg.quantity;
-      } else if (comp.type === 'recipe') {
-        const recipe = recipes.find(r => r.id === comp.componentId);
-        if (recipe && recipe.yieldQuantity > 0) {
-          const recipeTotalCost = recipe.items.reduce((rcpAcc, rcpItem) => {
-            const rcpIng = ingredients.find(i => i.id === rcpItem.ingredientId);
-            const rcpCostPerUnit = rcpIng && rcpIng.quantity > 0 ? rcpIng.price / rcpIng.quantity : 0;
-            return rcpAcc + (rcpCostPerUnit * rcpItem.usedQuantity);
-          }, 0);
-          costPerUnit = recipeTotalCost / recipe.yieldQuantity;
-        }
-      }
-      return acc + (costPerUnit * comp.usedQuantity);
-    }, 0);
-
-    const laborCost = (product.productionTimeMinutes / 60) * hourlyRate;
-    const directCost = materialCost + laborCost;
-    const fixedCostValue = directCost * (settings.fixedCostsPercent / 100);
-    return directCost + fixedCostValue;
-  };
 
   const handleSave = () => {
     if (!selectedProductId || !quantity || !salePrice) {
@@ -74,6 +40,44 @@ export default function SalesScreen() {
     if (isNaN(parsedQuantity) || isNaN(parsedPrice) || parsedQuantity <= 0) {
       Alert.alert('Erro', 'Valores inválidos!');
       return;
+    }
+
+    // Lógica de Baixa de Estoque (agora baseada em pacotes)
+    const product = products.find(p => p.id === selectedProductId);
+    if (product) {
+      product.components.forEach(comp => {
+        const totalUsedUnits = comp.usedQuantity * parsedQuantity;
+        
+        if (comp.type === 'ingredient') {
+          const ing = ingredients.find(i => i.id === comp.componentId);
+          if (ing && ing.quantity > 0) {
+            // Converte a quantidade usada (ex: 50g) para a fração do pacote (ex: 50/1000 = 0.05 pacote)
+            const packagesUsed = totalUsedUnits / ing.quantity;
+            updateIngredient(ing.id, { stock: Math.max(0, (ing.stock || 0) - packagesUsed) });
+          }
+        } else if (comp.type === 'packaging') {
+          const pkg = packagings.find(p => p.id === comp.componentId);
+          if (pkg && pkg.quantity > 0) {
+            // Embalagens também têm quantidade por pacote (ex: pacote com 100 potes)
+            const packagesUsed = totalUsedUnits / pkg.quantity;
+            updatePackaging(pkg.id, { stock: Math.max(0, (pkg.stock || 0) - packagesUsed) });
+          }
+        } else if (comp.type === 'recipe') {
+          const recipe = recipes.find(r => r.id === comp.componentId);
+          if (recipe && recipe.yieldQuantity > 0) {
+            recipe.items.forEach(item => {
+              const ing = ingredients.find(i => i.id === item.ingredientId);
+              if (ing && ing.quantity > 0) {
+                // Cálculo: (Receita usada / rendimento) * ingredientes da receita
+                const recipeUsageFactor = totalUsedUnits / recipe.yieldQuantity;
+                const ingredientTotalUsedUnits = item.usedQuantity * recipeUsageFactor;
+                const packagesUsed = ingredientTotalUsedUnits / ing.quantity;
+                updateIngredient(ing.id, { stock: Math.max(0, (ing.stock || 0) - packagesUsed) });
+              }
+            });
+          }
+        }
+      });
     }
 
     addSale({
@@ -114,9 +118,11 @@ export default function SalesScreen() {
   const handleSelectProduct = (productId: string) => {
     setSelectedProductId(productId);
     // Sugere o preço calculado ao selecionar o produto
-    const totalCost = getProductTotalCost(productId);
-    const suggestedPrice = totalCost > 0 ? (totalCost / (1 - (settings.profitMarginPercent / 100))) : 0;
-    setSalePrice(suggestedPrice.toFixed(2).replace('.', ','));
+    const product = products.find(p => p.id === productId);
+    if (product) {
+      const suggestedPrice = getSuggestedPrice(product);
+      setSalePrice(suggestedPrice.toFixed(2).replace('.', ','));
+    }
   };
 
   const renderItem = ({ item }: { item: Sale }) => {
@@ -124,7 +130,7 @@ export default function SalesScreen() {
     const productName = product ? product.name : 'Produto Excluído';
     
     const totalRevenue = item.salePrice * item.quantity;
-    const unitCost = product ? getProductTotalCost(product.id) : 0;
+    const unitCost = product ? getProductUnitCost(product) : 0;
     const totalCost = unitCost * item.quantity;
     const profit = totalRevenue - totalCost;
     
@@ -193,84 +199,86 @@ export default function SalesScreen() {
         onRequestClose={closeModal}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <KeyboardAvoidingView 
-            style={styles.modalOverlay}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Registrar Venda</Text>
-                <TouchableOpacity onPress={closeModal}>
-                  <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView 
+              style={{ width: '100%' }}
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            >
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Registrar Venda</Text>
+                  <TouchableOpacity onPress={closeModal}>
+                    <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.inputLabel}>Selecione o Produto</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.productsScroll}
+                  contentContainerStyle={{ paddingRight: 20 }}
+                >
+                  {products.length === 0 ? (
+                    <Text style={{ color: colors.muted, fontStyle: 'italic', marginTop: 10 }}>
+                      Cadastre um produto final primeiro.
+                    </Text>
+                  ) : (
+                    products.map(p => (
+                      <TouchableOpacity
+                        key={p.id}
+                        style={[
+                          styles.productChip,
+                          selectedProductId === p.id && styles.productChipSelected
+                        ]}
+                        onPress={() => handleSelectProduct(p.id)}
+                      >
+                        <Text style={[
+                          styles.productChipText,
+                          selectedProductId === p.id && styles.productChipTextSelected
+                        ]}>
+                          {p.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+
+                <View style={styles.row}>
+                  <View style={[styles.inputContainer, { marginRight: 8 }]}>
+                    <Text style={styles.inputLabel}>Qtd. Vendida</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: 5"
+                      keyboardType="numeric"
+                      value={quantity}
+                      onChangeText={setQuantity}
+                    />
+                  </View>
+                  
+                  <View style={[styles.inputContainer, { marginLeft: 8 }]}>
+                    <Text style={styles.inputLabel}>Preço Unitário (R$)</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Ex: 12,50"
+                      keyboardType="numeric"
+                      value={salePrice}
+                      onChangeText={setSalePrice}
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.saveButton, !selectedProductId && { opacity: 0.5 }]}
+                  activeOpacity={0.8}
+                  onPress={handleSave}
+                  disabled={!selectedProductId}
+                >
+                  <Text style={styles.saveButtonText}>Confirmar Venda</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={styles.inputLabel}>Selecione o Produto</Text>
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                style={styles.productsScroll}
-                contentContainerStyle={{ paddingRight: 20 }}
-              >
-                {products.length === 0 ? (
-                  <Text style={{ color: colors.muted, fontStyle: 'italic', marginTop: 10 }}>
-                    Cadastre um produto final primeiro.
-                  </Text>
-                ) : (
-                  products.map(p => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[
-                        styles.productChip,
-                        selectedProductId === p.id && styles.productChipSelected
-                      ]}
-                      onPress={() => handleSelectProduct(p.id)}
-                    >
-                      <Text style={[
-                        styles.productChipText,
-                        selectedProductId === p.id && styles.productChipTextSelected
-                      ]}>
-                        {p.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </ScrollView>
-
-              <View style={styles.row}>
-                <View style={[styles.inputContainer, { marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Qtd. Vendida</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: 5"
-                    keyboardType="numeric"
-                    value={quantity}
-                    onChangeText={setQuantity}
-                  />
-                </View>
-                
-                <View style={[styles.inputContainer, { marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Preço Unitário (R$)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ex: 12,50"
-                    keyboardType="numeric"
-                    value={salePrice}
-                    onChangeText={setSalePrice}
-                  />
-                </View>
-              </View>
-
-              <TouchableOpacity 
-                style={[styles.saveButton, !selectedProductId && { opacity: 0.5 }]}
-                activeOpacity={0.8}
-                onPress={handleSave}
-                disabled={!selectedProductId}
-              >
-                <Text style={styles.saveButtonText}>Confirmar Venda</Text>
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+          </View>
         </TouchableWithoutFeedback>
       </Modal>
     </View>

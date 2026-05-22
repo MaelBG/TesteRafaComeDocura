@@ -12,56 +12,52 @@ import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { TabParamList } from '../navigation/types';
 import { useAppStore } from '../store/useAppStore';
+import { usePricing } from '../hooks/usePricing';
 
 type DashboardNavigationProp = BottomTabNavigationProp<TabParamList, 'Dashboard'>;
 
 export default function DashboardScreen() {
   const navigation = useNavigation<DashboardNavigationProp>();
   const { ingredients, packagings, recipes, products, sales, settings } = useAppStore();
+  const { getProductUnitCost } = usePricing();
 
   const totalSalesCount = sales.reduce((acc, sale) => acc + sale.quantity, 0);
   const totalRevenue = sales.reduce((acc, sale) => acc + (sale.salePrice * sale.quantity), 0);
 
-  // Calcula o lucro líquido de todas as vendas
-  const totalProfit = sales.reduce((acc, sale) => {
-    const product = products.find(p => p.id === sale.productId);
-    let unitCost = 0;
+  // Calcula o lucro líquido de todas as vendas e gera estatísticas por produto
+  let totalProfit = 0;
+  
+  const productStats = products.map(product => {
+    const productSales = sales.filter(s => s.productId === product.id);
+    const qtySold = productSales.reduce((sum, s) => sum + s.quantity, 0);
+    const unitCost = getProductUnitCost(product) || 0;
 
-    if (product) {
-      const totalHoursMonth = settings.hoursPerDay * settings.daysPerWeek * 4;
-      const hourlyRate = totalHoursMonth > 0 ? (settings.salary / totalHoursMonth) : 0;
+    const revenue = productSales.reduce((sum, s) => sum + ((s.salePrice || 0) * s.quantity), 0);
+    const cost = unitCost * qtySold;
+    const profit = revenue - cost;
 
-      const materialCost = product.components.reduce((costAcc, comp) => {
-        let costPerUnit = 0;
-        if (comp.type === 'ingredient') {
-          const ing = ingredients.find(i => i.id === comp.componentId);
-          if (ing && ing.quantity > 0) costPerUnit = ing.price / ing.quantity;
-        } else if (comp.type === 'packaging') {
-          const pkg = packagings.find(p => p.id === comp.componentId);
-          if (pkg && pkg.quantity > 0) costPerUnit = pkg.price / pkg.quantity;
-        } else if (comp.type === 'recipe') {
-          const recipe = recipes.find(r => r.id === comp.componentId);
-          if (recipe && recipe.yieldQuantity > 0) {
-            const recipeTotalCost = recipe.items.reduce((rcpAcc, rcpItem) => {
-              const rcpIng = ingredients.find(i => i.id === rcpItem.ingredientId);
-              const rcpCostPerUnit = rcpIng && rcpIng.quantity > 0 ? rcpIng.price / rcpIng.quantity : 0;
-              return rcpAcc + (rcpCostPerUnit * rcpItem.usedQuantity);
-            }, 0);
-            costPerUnit = recipeTotalCost / recipe.yieldQuantity;
-          }
-        }
-        return costAcc + (costPerUnit * comp.usedQuantity);
-      }, 0);
+    totalProfit += profit;
 
-      const laborCost = (product.productionTimeMinutes / 60) * hourlyRate;
-      const directCost = materialCost + laborCost;
-      const fixedCostValue = directCost * (settings.fixedCostsPercent / 100);
-      unitCost = directCost + fixedCostValue;
-    }
+    return {
+      id: product.id,
+      name: product.name,
+      qtySold,
+      profit
+    };
+  }).filter(p => p.qtySold > 0);
 
-    const profitPerUnit = sale.salePrice - unitCost;
-    return acc + (profitPerUnit * sale.quantity);
-  }, 0);
+  // Top 3 Mais Vendidos
+  const topSellers = [...productStats].sort((a, b) => b.qtySold - a.qtySold).slice(0, 3);
+  
+  // Top 3 Maior Lucro
+  const topProfitable = [...productStats].sort((a, b) => b.profit - a.profit).slice(0, 3);
+
+  const renderRankingPodium = (index: number) => {
+    if (index === 0) return <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />; // Ouro
+    if (index === 1) return <MaterialCommunityIcons name="medal" size={20} color="#C0C0C0" />; // Prata
+    if (index === 2) return <MaterialCommunityIcons name="medal" size={20} color="#CD7F32" />; // Bronze
+    return <Text style={styles.rankNumber}>{index + 1}º</Text>;
+  };
 
   return (
     <View style={styles.container}>
@@ -87,12 +83,65 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Grid de Estatísticas */}
+        {/* Campeões de Venda */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="crown" size={24} color={colors.primary} />
+            <Text style={styles.sectionTitle}>Campeões de Vendas</Text>
+          </View>
+          
+          <View style={styles.rankingCard}>
+            {topSellers.length === 0 ? (
+              <Text style={styles.emptyRankingText}>Nenhuma venda registrada ainda.</Text>
+            ) : (
+              topSellers.map((item, index) => (
+                <View key={item.id} style={[styles.rankingRow, index !== topSellers.length - 1 && styles.rankingDivider]}>
+                  <View style={styles.rankIconContainer}>
+                    {renderRankingPodium(index)}
+                  </View>
+                  <Text style={styles.rankingName} numberOfLines={1}>{item.name}</Text>
+                  <View style={styles.rankingValueBadge}>
+                    <Text style={styles.rankingValueText}>{item.qtySold} unid.</Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        {/* Destaques em Lucro */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <MaterialCommunityIcons name="diamond-stone" size={24} color={colors.secondary} />
+            <Text style={styles.sectionTitle}>Destaques em Lucro</Text>
+          </View>
+          
+          <View style={styles.rankingCard}>
+            {topProfitable.length === 0 ? (
+              <Text style={styles.emptyRankingText}>Nenhum lucro registrado ainda.</Text>
+            ) : (
+              topProfitable.map((item, index) => (
+                <View key={item.id} style={[styles.rankingRow, index !== topProfitable.length - 1 && styles.rankingDivider]}>
+                  <View style={styles.rankIconContainer}>
+                    {renderRankingPodium(index)}
+                  </View>
+                  <Text style={styles.rankingName} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.rankingProfitText}>
+                    + R$ {item.profit.toFixed(2).replace('.', ',')}
+                  </Text>
+                </View>
+              ))
+            )}
+          </View>
+        </View>
+
+        {/* Grid de Estatísticas Gerais */}
+        <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Estoque & Geral</Text>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="shopping-outline" size={28} color={colors.accent} style={styles.statIcon} />
             <Text style={styles.statValue}>{totalSalesCount}</Text>
-            <Text style={styles.statLabel}>Unid. Vendidas</Text>
+            <Text style={styles.statLabel}>Vendas Totais</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -104,7 +153,7 @@ export default function DashboardScreen() {
           <View style={styles.statCard}>
             <MaterialCommunityIcons name="food-apple" size={28} color={colors.accent} style={styles.statIcon} />
             <Text style={styles.statValue}>{ingredients.length + packagings.length}</Text>
-            <Text style={styles.statLabel}>Estoque (Itens)</Text>
+            <Text style={styles.statLabel}>Itens Despensa</Text>
           </View>
 
           <View style={styles.statCard}>
@@ -115,34 +164,19 @@ export default function DashboardScreen() {
         </View>
 
         {/* Ações Rápidas */}
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-        
-        <TouchableOpacity 
-          style={styles.actionButton}
-          activeOpacity={0.8}
-          onPress={() => navigation.navigate('Products')}
-        >
-          <View style={[styles.actionIconContainer, { backgroundColor: colors.primary }]}>
-            <MaterialCommunityIcons name="plus-circle-outline" size={24} color={colors.white} />
-          </View>
-          <View style={styles.actionTextContainer}>
-            <Text style={styles.actionTitle}>Novo Produto Final</Text>
-            <Text style={styles.actionDescription}>Monte um novo bolo de pote para venda.</Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.muted} />
-        </TouchableOpacity>
+        <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Ações Rápidas</Text>
 
         <TouchableOpacity 
           style={styles.actionButton}
           activeOpacity={0.8}
-          onPress={() => navigation.navigate('Ingredients')}
+          onPress={() => navigation.navigate('MarketList' as any)} // Cast temporário até atualizar types
         >
-          <View style={[styles.actionIconContainer, { backgroundColor: colors.secondary }]}>
-            <MaterialCommunityIcons name="cart-plus" size={24} color={colors.white} />
+          <View style={[styles.actionIconContainer, { backgroundColor: colors.accent }]}>
+            <MaterialCommunityIcons name="cart-outline" size={24} color={colors.white} />
           </View>
           <View style={styles.actionTextContainer}>
-            <Text style={styles.actionTitle}>Comprei Ingredientes</Text>
-            <Text style={styles.actionDescription}>Atualize sua despensa com novas compras.</Text>
+            <Text style={styles.actionTitle}>Lista de Mercado</Text>
+            <Text style={styles.actionDescription}>Veja o que está faltando no seu estoque.</Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={24} color={colors.muted} />
         </TouchableOpacity>
@@ -220,11 +254,89 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
   },
+  sectionContainer: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginLeft: 8,
+  },
+  rankingCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  rankingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  rankingDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.muted,
+  },
+  rankIconContainer: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  rankNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+    opacity: 0.6,
+  },
+  rankingName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+    marginRight: 10,
+  },
+  rankingValueBadge: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.muted,
+  },
+  rankingValueText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  rankingProfitText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+  },
+  emptyRankingText: {
+    textAlign: 'center',
+    color: colors.text,
+    opacity: 0.5,
+    fontStyle: 'italic',
+    paddingVertical: 10,
+  },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 32,
+    marginTop: 10,
+    marginBottom: 20,
   },
   statCard: {
     backgroundColor: colors.white,
@@ -252,12 +364,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
     opacity: 0.7,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 16,
   },
   actionButton: {
     backgroundColor: colors.white,

@@ -14,19 +14,17 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore, Product } from '../store/useAppStore';
+import { usePricing } from '../hooks/usePricing';
 
 export default function ProductsScreen() {
-  const { products, removeProduct, ingredients, recipes, settings } = useAppStore();
+  const { products, removeProduct, settings } = useAppStore();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  // Custo por hora de mão de obra
-  const totalHoursMonth = settings.hoursPerDay * settings.daysPerWeek * 4;
-  const hourlyRate = totalHoursMonth > 0 ? (settings.salary / totalHoursMonth) : 0;
+  const { getProductUnitCost, getSuggestedPrice, getProductProductionCost } = usePricing();
 
   const handleRemove = (id: string) => {
     Alert.alert(
-      "Excluir Produto",
-      "Tem certeza que deseja apagar este produto?",
+      "Excluir Doce",
+      "Tem certeza que deseja apagar este doce?",
       [
         { text: "Cancelar", style: "cancel" },
         { text: "Excluir", style: "destructive", onPress: () => removeProduct(id) }
@@ -35,43 +33,18 @@ export default function ProductsScreen() {
   };
 
   const renderItem = ({ item }: { item: Product }) => {
-    // Calcula custo material de todos os componentes daquele produto
-    const materialCost = item.components.reduce((acc, comp) => {
-      let costPerUnit = 0;
-
-      if (comp.type === 'ingredient' || comp.type === 'packaging') {
-        const ing = ingredients.find(i => i.id === comp.componentId);
-        if (ing && ing.quantity > 0) costPerUnit = ing.price / ing.quantity;
-      } else if (comp.type === 'recipe') {
-        const recipe = recipes.find(r => r.id === comp.componentId);
-        if (recipe && recipe.yieldQuantity > 0) {
-          const recipeTotalCost = recipe.items.reduce((rcpAcc, rcpItem) => {
-            const rcpIng = ingredients.find(i => i.id === rcpItem.ingredientId);
-            const rcpCostPerUnit = rcpIng && rcpIng.quantity > 0 ? rcpIng.price / rcpIng.quantity : 0;
-            return rcpAcc + (rcpCostPerUnit * rcpItem.usedQuantity);
-          }, 0);
-          costPerUnit = recipeTotalCost / recipe.yieldQuantity;
-        }
-      }
-
-      return acc + (costPerUnit * comp.usedQuantity);
-    }, 0);
-
-    // Custos adicionais (Mão de Obra e Fixos)
-    const laborCost = (item.productionTimeMinutes / 60) * hourlyRate;
-    const directCost = materialCost + laborCost;
-    const fixedCostValue = directCost * (settings.fixedCostsPercent / 100);
-    const totalCost = directCost + fixedCostValue;
-
-    // Preço Sugerido e Lucro
-    const suggestedPrice = totalCost > 0 ? (totalCost / (1 - (settings.profitMarginPercent / 100))) : 0;
+    // Usando o hook de precificação centralizado com segurança
+    const totalCost = getProductUnitCost(item) || 0;
+    const productionCost = getProductProductionCost(item) || 0;
+    
+    const suggestedPrice = getSuggestedPrice(item) || 0;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemDescription}>Tempo montagem: {item.productionTimeMinutes} min</Text>
+            <Text style={styles.itemName}>{item.name || 'Sem nome'}</Text>
+            <Text style={styles.itemDescription}>Tempo montagem: {item.productionTimeMinutes || 0} min</Text>
           </View>
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('CreateProduct', { productId: item.id })}>
@@ -85,12 +58,12 @@ export default function ProductsScreen() {
         
         <View style={styles.costsContainer}>
           <View style={styles.costColumn}>
-            <Text style={styles.costLabel}>Custo Material</Text>
-            <Text style={styles.costValue}>R$ {materialCost.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.costLabel}>Custo Produção</Text>
+            <Text style={styles.costValue}>R$ {productionCost.toFixed(2).replace('.', ',')}</Text>
           </View>
           <View style={styles.costDivider} />
           <View style={styles.costColumn}>
-            <Text style={styles.costLabel}>Custo Total</Text>
+            <Text style={styles.costLabel}>Custo Final (c/ Emb.)</Text>
             <Text style={styles.costValue}>R$ {totalCost.toFixed(2).replace('.', ',')}</Text>
           </View>
         </View>
@@ -103,7 +76,7 @@ export default function ProductsScreen() {
           <View style={styles.priceFooter}>
             <Text style={styles.priceValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text>
             <View style={styles.profitBadge}>
-              <Text style={styles.profitText}>Lucro: {settings.profitMarginPercent}%</Text>
+              <Text style={styles.profitText}>Lucro: {settings.profitMarginPercent || 0}%</Text>
             </View>
           </View>
         </View>
@@ -116,7 +89,7 @@ export default function ProductsScreen() {
       {products.length === 0 ? (
         <View style={styles.emptyState}>
           <MaterialCommunityIcons name="store-outline" size={60} color={colors.muted} />
-          <Text style={styles.emptyStateText}>Nenhum produto cadastrado.</Text>
+          <Text style={styles.emptyStateText}>Nenhum doce cadastrado.</Text>
           <Text style={styles.emptyStateSub}>Comece a criar seus doces clicando no +.</Text>
         </View>
       ) : (

@@ -15,8 +15,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors } from '../theme/colors';
-import { useAppStore, ProductComponent } from '../store/useAppStore';
+import { useAppStore, ProductComponent, Product } from '../store/useAppStore';
 import { RootStackParamList } from '../navigation/types';
+import { usePricing } from '../hooks/usePricing';
 
 // Interface local para a tela antes de salvar
 interface LocalComponent {
@@ -39,53 +40,73 @@ export default function CreateProductScreen() {
 
   // Dados globais
   const { ingredients, recipes, packagings, settings, addProduct, updateProduct, products } = useAppStore();
+  const { 
+    getIngredientUnitCost, 
+    getRecipeUnitCost, 
+    getPackagingUnitCost,
+    getLaborCost,
+    getProductProductionCost,
+    getProductUnitCost,
+    getSuggestedPrice,
+  } = usePricing();
 
   // Estados do Produto
   const [productName, setProductName] = useState('');
   const [productionTimeMinutes, setProductionTimeMinutes] = useState('');
   const [components, setComponents] = useState<LocalComponent[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
+  const [modalType, setModalType] = useState<'content' | 'packaging'>('content');
 
-  // Variáveis de Configuração globais
-  const totalHoursMonth = settings.hoursPerDay * settings.daysPerWeek * 4;
-  const hourlyRate = totalHoursMonth > 0 ? (settings.salary / totalHoursMonth) : 0;
-  const fixedCostsPercent = settings.fixedCostsPercent;
-  const profitMarginPercent = settings.profitMarginPercent;
+  // Estados para o Modal de Quantidade
+  const [quantityModalVisible, setQuantityModalVisible] = useState(false);
+  const [selectedCompForQty, setSelectedCompForQty] = useState<any | null>(null);
+  const [inputQty, setInputQty] = useState('');
+  const [inputUnit, setInputUnit] = useState<'base' | 'pkg'>('base');
 
-  // Montar lista combinada para o Modal (Receitas + Ingredientes + Embalagens)
-  const availableOptions = [
-    ...recipes.map(r => {
-      // Calcular o custo real da receita
-      const totalRcpCost = r.items.reduce((acc, item) => {
-        const ing = ingredients.find(i => i.id === item.ingredientId);
-        const costPerG = ing && ing.quantity > 0 ? (ing.price / ing.quantity) : 0;
-        return acc + (costPerG * item.usedQuantity);
-      }, 0);
-      const costPerUnit = r.yieldQuantity > 0 ? (totalRcpCost / r.yieldQuantity) : 0;
+  const handleOpenQuantityModal = (comp: any) => {
+    setSelectedCompForQty(comp);
+    setInputQty(comp.type === 'packaging' ? '1' : '');
+    setInputUnit('base');
+    setQuantityModalVisible(true);
+    setModalVisible(false);
+  };
 
-      return {
-        id: r.id,
-        name: r.name,
-        type: 'recipe' as const,
-        costPerUnit: costPerUnit,
-        unit: r.yieldUnit
-      };
-    }),
-    ...ingredients.map(i => ({
-      id: i.id,
-      name: i.name,
-      type: 'ingredient' as const,
-      costPerUnit: i.quantity > 0 ? (i.price / i.quantity) : 0,
-      unit: i.unit
-    })),
-    ...packagings.map(p => ({
-      id: p.id,
-      name: p.name,
-      type: 'packaging' as const,
-      costPerUnit: p.quantity > 0 ? (p.price / p.quantity) : 0,
-      unit: p.unit
-    }))
-  ];
+  const confirmAddComponent = () => {
+    if (!selectedCompForQty || !inputQty) return;
+
+    const parsedInput = parseFloat(inputQty.replace(',', '.')) || 0;
+    if (parsedInput <= 0) {
+      Alert.alert('Atenção', 'Digite uma quantidade válida.');
+      return;
+    }
+
+    let finalBaseQty = parsedInput;
+    if (inputUnit === 'pkg') {
+      if (selectedCompForQty.type === 'recipe') {
+        const recipe = recipes.find(r => r.id === selectedCompForQty.id);
+        finalBaseQty = parsedInput * (recipe?.yieldQuantity || 0);
+      } else {
+        const item = selectedCompForQty.type === 'ingredient' 
+          ? ingredients.find(i => i.id === selectedCompForQty.id)
+          : packagings.find(p => p.id === selectedCompForQty.id);
+        finalBaseQty = parsedInput * (item?.quantity || 0);
+      }
+    }
+
+    const newItem: LocalComponent = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+      componentId: selectedCompForQty.id,
+      name: selectedCompForQty.name,
+      type: selectedCompForQty.type,
+      usedQuantity: finalBaseQty.toString().replace('.', ','),
+      costPerUnit: selectedCompForQty.costPerUnit,
+      unit: selectedCompForQty.unit
+    };
+
+    setComponents([...components, newItem]);
+    setQuantityModalVisible(false);
+    setSelectedCompForQty(null);
+  };
 
   // Carregar dados se for edição
   useEffect(() => {
@@ -103,95 +124,70 @@ export default function CreateProductScreen() {
           if (comp.type === 'ingredient') {
             const ing = ingredients.find(i => i.id === comp.componentId);
             if (ing) {
-              name = ing.name;
-              unit = ing.unit;
-              costPerUnit = ing.quantity > 0 ? (ing.price / ing.quantity) : 0;
+              name = ing.name; unit = ing.unit;
+              costPerUnit = getIngredientUnitCost(ing.id);
             }
           } else if (comp.type === 'packaging') {
             const pkg = packagings.find(p => p.id === comp.componentId);
             if (pkg) {
-              name = pkg.name;
-              unit = pkg.unit;
-              costPerUnit = pkg.quantity > 0 ? (pkg.price / pkg.quantity) : 0;
+              name = pkg.name; unit = pkg.unit;
+              costPerUnit = getPackagingUnitCost(pkg.id);
             }
           } else if (comp.type === 'recipe') {
             const recipe = recipes.find(r => r.id === comp.componentId);
             if (recipe) {
-              name = recipe.name;
-              unit = recipe.yieldUnit;
-              const recipeTotalCost = recipe.items.reduce((rcpAcc, rcpItem) => {
-                const rcpIng = ingredients.find(i => i.id === rcpItem.ingredientId);
-                const rcpCostPerUnit = rcpIng && rcpIng.quantity > 0 ? rcpIng.price / rcpIng.quantity : 0;
-                return rcpAcc + (rcpCostPerUnit * rcpItem.usedQuantity);
-              }, 0);
-              costPerUnit = recipe.yieldQuantity > 0 ? (recipeTotalCost / recipe.yieldQuantity) : 0;
+              name = recipe.name; unit = recipe.yieldUnit;
+              costPerUnit = getRecipeUnitCost(recipe.id);
             }
           }
 
           return {
             id: comp.id,
             componentId: comp.componentId,
-            name,
-            type: comp.type,
+            name, type: comp.type,
             usedQuantity: comp.usedQuantity.toString().replace('.', ','),
-            costPerUnit,
-            unit
+            costPerUnit, unit
           };
         });
 
         setComponents(loadedComponents);
       }
     }
-  }, [productId, products, ingredients, recipes]);
+  }, [productId, products, ingredients, recipes, packagings]);
 
-  // Cálculos Automáticos
-  const materialCost = components.reduce((total, item) => {
-    const qty = parseFloat(item.usedQuantity.replace(',', '.')) || 0;
-    return total + (qty * item.costPerUnit);
-  }, 0);
+  // Objeto temporário para cálculos
+  const tempProduct: Product = {
+    id: productId || 'temp',
+    name: productName || '',
+    productionTimeMinutes: parseFloat(productionTimeMinutes.toString().replace(',', '.')) || 0,
+    components: components.map(c => ({
+      id: c.id,
+      componentId: c.componentId,
+      type: c.type,
+      usedQuantity: parseFloat(c.usedQuantity.toString().replace(',', '.')) || 0
+    }))
+  };
 
-  const timeMinutes = parseFloat(productionTimeMinutes.replace(',', '.')) || 0;
-  const laborCost = (timeMinutes / 60) * hourlyRate;
+  const productionCost = getProductProductionCost(tempProduct) || 0;
+  const totalCost = getProductUnitCost(tempProduct) || 0;
+  const suggestedPrice = getSuggestedPrice(tempProduct) || 0;
   
-  const directCost = materialCost + laborCost;
-  const fixedCostValue = directCost * (fixedCostsPercent / 100);
-  const totalCost = directCost + fixedCostValue;
-
-  const suggestedPrice = totalCost > 0 ? (totalCost / (1 - (profitMarginPercent / 100))) : 0;
+  const materialCost = components.reduce((acc, c) => acc + (parseFloat(c.usedQuantity.toString().replace(',', '.')) || 0) * (c.costPerUnit || 0), 0);
+  const contentsBaseCost = components.filter(c => c.type !== 'packaging').reduce((acc, c) => acc + (parseFloat(c.usedQuantity.toString().replace(',', '.')) || 0) * (c.costPerUnit || 0), 0);
+  
+  const recipeRealCost = contentsBaseCost * 1.05;
+  const indirectCostValue = recipeRealCost * (settings.fixedCostsPercent / 100);
+  const laborCostValue = getLaborCost(tempProduct.productionTimeMinutes) || 0;
+  const profitMarginPercent = settings.profitMarginPercent || 0;
   const actualProfit = suggestedPrice - totalCost;
-
-  const handleAddComponent = (comp: typeof availableOptions[0]) => {
-    const newItem: LocalComponent = {
-      id: Date.now().toString(),
-      componentId: comp.id,
-      name: comp.name,
-      type: comp.type,
-      usedQuantity: comp.unit === 'un' ? '1' : '', 
-      costPerUnit: comp.costPerUnit,
-      unit: comp.unit
-    };
-    setComponents([...components, newItem]);
-    setModalVisible(false);
-  };
-
-  const updateItemQuantity = (id: string, text: string) => {
-    setComponents(items => 
-      items.map(item => item.id === id ? { ...item, usedQuantity: text } : item)
-    );
-  };
-
-  const removeItem = (id: string) => {
-    setComponents(items => items.filter(item => item.id !== id));
-  };
 
   const handleSaveProduct = () => {
     if (!productName.trim() || !productionTimeMinutes.trim()) {
-      Alert.alert('Atenção', 'Preencha o nome do produto e o tempo de montagem.');
+      Alert.alert('Atenção', 'Preencha os campos obrigatórios.');
       return;
     }
-
     if (components.length === 0) {
-      Alert.alert('Atenção', 'Adicione pelo menos um componente ao produto.');
+      Alert.alert('Atenção', 'Adicione componentes.');
       return;
     }
 
@@ -202,524 +198,207 @@ export default function CreateProductScreen() {
       usedQuantity: parseFloat(c.usedQuantity.replace(',', '.')) || 0
     }));
 
-    const hasZeroQuantity = formattedComponents.some(c => c.usedQuantity <= 0);
-    if (hasZeroQuantity) {
-       Alert.alert('Atenção', 'Existem componentes com quantidade zero.');
-       return;
-    }
-
     if (productId) {
-      updateProduct(productId, {
-        name: productName,
-        productionTimeMinutes: timeMinutes,
-        components: formattedComponents
-      });
-      Alert.alert('Sucesso', 'Produto atualizado com sucesso!', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      updateProduct(productId, { name: productName, productionTimeMinutes: tempProduct.productionTimeMinutes, components: formattedComponents });
+      Alert.alert('Sucesso', 'Produto atualizado!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } else {
-      addProduct({
-        name: productName,
-        productionTimeMinutes: timeMinutes,
-        components: formattedComponents
-      });
-      Alert.alert('Sucesso', 'Produto salvo com sucesso!', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
+      addProduct({ name: productName, productionTimeMinutes: tempProduct.productionTimeMinutes, components: formattedComponents });
+      Alert.alert('Sucesso', 'Produto salvo!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     }
   };
+
+  // Helper para agrupar opções por categoria
+  const getGroupedOptions = () => {
+    const groups: { [key: string]: any[] } = {};
+
+    if (modalType === 'content') {
+      // Receitas
+      recipes.forEach(r => {
+        const cat = r.category || 'Receitas Sem Categoria';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push({...r, type: 'recipe', costPerUnit: getRecipeUnitCost(r.id), unit: r.yieldUnit});
+      });
+      // Ingredientes
+      ingredients.forEach(i => {
+        const cat = i.category || 'Ingredientes Sem Categoria';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push({...i, type: 'ingredient', costPerUnit: getIngredientUnitCost(i.id), unit: i.unit});
+      });
+    } else {
+      // Embalagens
+      packagings.forEach(p => {
+        const cat = p.category || 'Embalagens Sem Categoria';
+        if (!groups[cat]) groups[cat] = [];
+        groups[cat].push({...p, type: 'packaging', costPerUnit: getPackagingUnitCost(p.id), unit: p.unit});
+      });
+    }
+
+    return groups;
+  };
+
+  const groupedOptions = getGroupedOptions();
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{productId ? 'Editar Produto Final' : 'Novo Produto Final'}</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()}><MaterialCommunityIcons name="arrow-left" size={28} color={colors.text} /></TouchableOpacity>
+        <Text style={styles.headerTitle}>{productId ? 'Editar Produto' : 'Novo Produto'}</Text>
         <View style={{ width: 28 }} /> 
       </View>
 
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          
           <View style={styles.card}>
             <Text style={styles.label}>Nome do Produto</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ex: Bolo de Pote Ninho com Nutella"
-              value={productName}
-              onChangeText={setProductName}
-            />
-
-            <Text style={styles.label}>Tempo de Montagem (Minutos)</Text>
-            <Text style={styles.helperText}>Tempo gasto para montar 1 unidade.</Text>
-            <TextInput
-              style={[styles.input, { marginBottom: 0 }]}
-              placeholder="Ex: 5"
-              keyboardType="numeric"
-              value={productionTimeMinutes}
-              onChangeText={setProductionTimeMinutes}
-            />
+            <TextInput style={styles.input} placeholder="Ex: Bolo de Pote Ninho" value={productName} onChangeText={setProductName} />
+            <Text style={styles.label}>Tempo Montagem (Minutos)</Text>
+            <TextInput style={styles.input} placeholder="Ex: 10" keyboardType="numeric" value={productionTimeMinutes} onChangeText={setProductionTimeMinutes} />
           </View>
 
           <View style={styles.card}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Conteúdo (Comestível)</Text>
-              <TouchableOpacity onPress={() => setModalVisible(true)}>
-                <MaterialCommunityIcons name="plus-circle" size={28} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.helperText}>Massas, recheios e ingredientes adicionais.</Text>
-
-            {components.filter(c => c.type === 'ingredient' || c.type === 'recipe').length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="pot-mix" size={40} color={colors.muted} />
-                <Text style={styles.emptyText}>Nenhum conteúdo adicionado.</Text>
+            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Conteúdo</Text><TouchableOpacity onPress={() => { setModalType('content'); setModalVisible(true); }}><MaterialCommunityIcons name="plus-circle" size={28} color={colors.primary} /></TouchableOpacity></View>
+            {components.filter(c => c.type !== 'packaging').map((item) => (
+              <View key={item.id} style={styles.ingredientRow}>
+                <View style={styles.ingredientInfo}><Text style={styles.ingredientName}>{item.name}</Text><Text style={styles.ingredientCost}>R$ {((parseFloat(item.usedQuantity.replace(',','.'))||0)*item.costPerUnit).toFixed(2)}</Text></View>
+                <View style={styles.qtyContainer}><TextInput style={styles.qtyInput} keyboardType="numeric" value={item.usedQuantity} onChangeText={(t) => setComponents(prev => prev.map(c => c.id === item.id ? {...c, usedQuantity: t} : c))} /><Text style={styles.qtyUnit}>{item.unit}</Text></View>
+                <TouchableOpacity onPress={() => setComponents(prev => prev.filter(c => c.id !== item.id))}><MaterialCommunityIcons name="close-circle" size={24} color={colors.muted} /></TouchableOpacity>
               </View>
-            ) : (
-              components.filter(c => c.type === 'ingredient' || c.type === 'recipe').map((item) => {
-                const qty = parseFloat(item.usedQuantity.replace(',', '.')) || 0;
-                const itemCost = qty * item.costPerUnit;
-
-                return (
-                  <View key={item.id} style={styles.ingredientRow}>
-                    <View style={styles.ingredientInfo}>
-                      <Text style={styles.ingredientName}>{item.name}</Text>
-                      <Text style={styles.ingredientCost}>R$ {itemCost.toFixed(2).replace('.', ',')}</Text>
-                    </View>
-                    
-                    <View style={styles.qtyContainer}>
-                      <TextInput
-                        style={styles.qtyInput}
-                        placeholder="0"
-                        keyboardType="numeric"
-                        value={item.usedQuantity}
-                        onChangeText={(text) => updateItemQuantity(item.id, text)}
-                      />
-                      <Text style={styles.qtyUnit}>{item.unit}</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.removeBtn} onPress={() => removeItem(item.id)}>
-                      <MaterialCommunityIcons name="close-circle" size={24} color={colors.muted} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })
-            )}
-
+            ))}
             <View style={styles.divider} />
-
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Embalagens e Extras</Text>
-            </View>
-            <Text style={styles.helperText}>Potes, colheres, adesivos e fitas.</Text>
-
-            {components.filter(c => c.type === 'packaging').length === 0 ? (
-              <View style={styles.emptyState}>
-                <MaterialCommunityIcons name="package-variant" size={40} color={colors.muted} />
-                <Text style={styles.emptyText}>Nenhuma embalagem adicionada.</Text>
+            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Embalagem</Text><TouchableOpacity onPress={() => { setModalType('packaging'); setModalVisible(true); }}><MaterialCommunityIcons name="plus-circle" size={28} color={colors.primary} /></TouchableOpacity></View>
+            {components.filter(c => c.type === 'packaging').map((item) => (
+              <View key={item.id} style={styles.ingredientRow}>
+                <View style={styles.ingredientInfo}><Text style={styles.ingredientName}>{item.name}</Text><Text style={styles.ingredientCost}>R$ {((parseFloat(item.usedQuantity.replace(',','.'))||0)*item.costPerUnit).toFixed(2)}</Text></View>
+                <View style={styles.qtyContainer}><TextInput style={styles.qtyInput} keyboardType="numeric" value={item.usedQuantity} onChangeText={(t) => setComponents(prev => prev.map(c => c.id === item.id ? {...c, usedQuantity: t} : c))} /><Text style={styles.qtyUnit}>{item.unit}</Text></View>
+                <TouchableOpacity onPress={() => setComponents(prev => prev.filter(c => c.id !== item.id))}><MaterialCommunityIcons name="close-circle" size={24} color={colors.muted} /></TouchableOpacity>
               </View>
-            ) : (
-              components.filter(c => c.type === 'packaging').map((item) => {
-                const qty = parseFloat(item.usedQuantity.replace(',', '.')) || 0;
-                const itemCost = qty * item.costPerUnit;
-
-                return (
-                  <View key={item.id} style={styles.ingredientRow}>
-                    <View style={styles.ingredientInfo}>
-                      <Text style={styles.ingredientName}>{item.name}</Text>
-                      <Text style={styles.ingredientCost}>R$ {itemCost.toFixed(2).replace('.', ',')}</Text>
-                    </View>
-                    
-                    <View style={styles.qtyContainer}>
-                      <TextInput
-                        style={styles.qtyInput}
-                        placeholder="0"
-                        keyboardType="numeric"
-                        value={item.usedQuantity}
-                        onChangeText={(text) => updateItemQuantity(item.id, text)}
-                      />
-                      <Text style={styles.qtyUnit}>{item.unit}</Text>
-                    </View>
-
-                    <TouchableOpacity style={styles.removeBtn} onPress={() => removeItem(item.id)}>
-                      <MaterialCommunityIcons name="close-circle" size={24} color={colors.muted} />
-                    </TouchableOpacity>
-                  </View>
-                );
-              })
-            )}
+            ))}
           </View>
 
-          {/* Área Mágica da Precificação */}
           <View style={styles.pricingCard}>
-            <View style={styles.pricingHeader}>
-              <MaterialCommunityIcons name="calculator" size={24} color={colors.white} />
-              <Text style={styles.pricingTitle}>Calculadora de Preço</Text>
-            </View>
-            
+            <View style={styles.pricingHeader}><MaterialCommunityIcons name="calculator" size={24} color={colors.white} /><Text style={styles.pricingTitle}>Preço</Text></View>
             <View style={styles.pricingBody}>
-              <View style={styles.calcRow}>
-                <Text style={styles.calcLabel}>Material (Ingred. + Receitas)</Text>
-                <Text style={styles.calcValue}>R$ {materialCost.toFixed(2).replace('.', ',')}</Text>
-              </View>
-              <View style={styles.calcRow}>
-                <Text style={styles.calcLabel}>Mão de Obra ({timeMinutes} min)</Text>
-                <Text style={styles.calcValue}>R$ {laborCost.toFixed(2).replace('.', ',')}</Text>
-              </View>
-              <View style={styles.calcRow}>
-                <Text style={styles.calcLabel}>Custos Fixos ({fixedCostsPercent}%)</Text>
-                <Text style={styles.calcValue}>R$ {fixedCostValue.toFixed(2).replace('.', ',')}</Text>
-              </View>
-              
-              <View style={styles.divider} />
-              
-              <View style={styles.calcRow}>
-                <Text style={styles.totalLabel}>Custo Total</Text>
-                <Text style={styles.totalValue}>R$ {totalCost.toFixed(2).replace('.', ',')}</Text>
-              </View>
-
-              <View style={styles.suggestedPriceBox}>
-                <Text style={styles.suggestedLabel}>Preço de Venda Sugerido</Text>
-                <Text style={styles.suggestedValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text>
-                <Text style={styles.profitText}>
-                  Lucro líquido: R$ {actualProfit.toFixed(2).replace('.', ',')} ({profitMarginPercent}%)
-                </Text>
-              </View>
+                <View style={styles.calcRow}><Text style={styles.calcLabel}>Material</Text><Text style={styles.calcValue}>R$ {materialCost.toFixed(2).replace('.', ',')}</Text></View>
+                <View style={styles.calcRow}><Text style={styles.calcLabel}>Mão de Obra</Text><Text style={styles.calcValue}>R$ {laborCostValue.toFixed(2).replace('.', ',')}</Text></View>
+                <View style={styles.calcRow}><Text style={styles.calcLabel}>Fixos ({settings.fixedCostsPercent}%)</Text><Text style={styles.calcValue}>R$ {indirectCostValue.toFixed(2).replace('.', ',')}</Text></View>
+                <View style={styles.divider} />
+                <View style={styles.suggestedPriceBox}><Text style={styles.suggestedLabel}>Sugerido</Text><Text style={styles.suggestedValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text><Text style={styles.profitText}>Lucro Líquido: R$ {actualProfit.toFixed(2).replace('.', ',')}</Text></View>
             </View>
           </View>
-
-          <TouchableOpacity 
-            style={styles.saveButton} 
-            activeOpacity={0.8}
-            onPress={handleSaveProduct}
-          >
-            <Text style={styles.saveButtonText}>Salvar Produto</Text>
-          </TouchableOpacity>
-
+          <TouchableOpacity style={styles.saveButton} onPress={handleSaveProduct}><Text style={styles.saveButtonText}>Salvar Produto</Text></TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Modal de Seleção (Receitas + Ingredientes) */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      {/* Modal Lista AGRUPADO por Categoria */}
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Adicionar Componente</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
+            <View style={styles.modalHeader}><Text style={styles.modalTitle}>Adicionar</Text><TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={colors.text} /></TouchableOpacity></View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              {availableOptions.length === 0 ? (
-                <Text style={{ textAlign: 'center', color: colors.text, opacity: 0.6, marginTop: 20 }}>
-                  Cadastre ingredientes ou receitas primeiro!
-                </Text>
-              ) : (
-                availableOptions.map((comp) => (
-                  <TouchableOpacity 
-                    key={comp.id} 
-                    style={styles.modalItem}
-                    onPress={() => handleAddComponent(comp)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.modalItemName}>{comp.name}</Text>
-                      <Text style={styles.modalItemType}>
-                        {comp.type === 'recipe' ? 'Receita Base' : 'Ingrediente/Embalagem'}
-                      </Text>
-                    </View>
-                    <Text style={styles.modalItemCost}>
-                      R$ {comp.costPerUnit.toFixed(3)}/{comp.unit}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              )}
+               {Object.keys(groupedOptions).length === 0 ? (
+                 <Text style={{textAlign:'center', marginTop:20, opacity:0.5}}>Nenhum item encontrado.</Text>
+               ) : (
+                 Object.keys(groupedOptions).sort().map(catName => (
+                   <View key={catName}>
+                     <View style={styles.modalSectionHeader}>
+                       <MaterialCommunityIcons name="folder-outline" size={18} color={colors.primary} />
+                       <Text style={styles.modalSectionTitle}>{catName}</Text>
+                     </View>
+                     {groupedOptions[catName].map(comp => (
+                       <TouchableOpacity key={comp.id} style={styles.modalItem} onPress={() => handleOpenQuantityModal(comp)}>
+                         <View style={{ flex: 1 }}>
+                           <Text style={styles.modalItemName}>{comp.name}</Text>
+                           <Text style={styles.modalItemType}>
+                             {comp.type === 'recipe' ? 'Receita Base' : comp.type === 'packaging' ? 'Embalagem' : 'Ingrediente'}
+                           </Text>
+                         </View>
+                         <Text style={styles.modalItemCost}>R$ {comp.costPerUnit.toFixed(3)}</Text>
+                       </TouchableOpacity>
+                     ))}
+                   </View>
+                 ))
+               )}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
+      {/* Modal Quantidade */}
+      <Modal visible={quantityModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.qtyModalContent]}>
+            <View style={styles.modalHeader}><Text style={styles.modalTitle}>Quantidade</Text><TouchableOpacity onPress={() => setQuantityModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={colors.text} /></TouchableOpacity></View>
+            <Text style={styles.qtyModalSubtitle}>{selectedCompForQty?.name}</Text>
+            <View style={styles.unitToggleRow}>
+              <TouchableOpacity style={[styles.toggleBtn, inputUnit === 'base' && styles.toggleBtnActive]} onPress={() => setInputUnit('base')}><Text style={{fontWeight: inputUnit==='base'?'bold':'normal'}}>Em {selectedCompForQty?.unit}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, inputUnit === 'pkg' && styles.toggleBtnActive]} onPress={() => setInputUnit('pkg')}><Text style={{fontWeight: inputUnit==='pkg'?'bold':'normal'}}>{selectedCompForQty?.type === 'recipe' ? 'Porções' : 'Pacotes'}</Text></TouchableOpacity>
+            </View>
+            <View style={styles.qtyInputRow}>
+              <TextInput 
+                style={styles.bigQtyInput} 
+                keyboardType="numeric" 
+                value={inputQty} 
+                onChangeText={setInputQty} 
+                autoFocus 
+                placeholder="Ex: 1"
+              />
+              <Text style={styles.bigQtyUnit}>{inputUnit === 'base' ? selectedCompForQty?.unit : 'un'}</Text>
+            </View>
+            <TouchableOpacity style={styles.saveButton} onPress={confirmAddComponent}><Text style={styles.saveButtonText}>Confirmar</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.muted,
-  },
-  backButton: {
-    padding: 4,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  helperText: {
-    fontSize: 12,
-    color: colors.text,
-    opacity: 0.6,
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.muted,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  emptyText: {
-    color: colors.text,
-    opacity: 0.5,
-    marginTop: 8,
-  },
-  ingredientRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  ingredientInfo: {
-    flex: 1,
-  },
-  ingredientName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  ingredientCost: {
-    fontSize: 12,
-    color: colors.text,
-    opacity: 0.7,
-    marginTop: 2,
-  },
-  qtyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.muted,
-    paddingHorizontal: 8,
-    marginRight: 12,
-    width: 70,
-  },
-  qtyInput: {
-    flex: 1,
-    paddingVertical: 8,
-    fontSize: 15,
-    textAlign: 'center',
-  },
-  qtyUnit: {
-    fontSize: 12,
-    color: colors.text,
-    opacity: 0.6,
-  },
-  removeBtn: {
-    padding: 4,
-  },
-  pricingCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    marginBottom: 24,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    overflow: 'hidden',
-  },
-  pricingHeader: {
-    backgroundColor: colors.accent,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-  },
-  pricingTitle: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  pricingBody: {
-    padding: 16,
-  },
-  calcRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  calcLabel: {
-    fontSize: 14,
-    color: colors.text,
-    opacity: 0.8,
-  },
-  calcValue: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.muted,
-    marginVertical: 12,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  suggestedPriceBox: {
-    backgroundColor: colors.secondary,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  suggestedLabel: {
-    fontSize: 12,
-    textTransform: 'uppercase',
-    fontWeight: 'bold',
-    color: colors.text,
-    opacity: 0.7,
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  suggestedValue: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  profitText: {
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: '500',
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 2,
-  },
-  saveButtonText: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '70%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  modalItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.muted,
-  },
-  modalItemName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  modalItemType: {
-    fontSize: 12,
-    color: colors.text,
-    opacity: 0.5,
-    marginTop: 2,
-  },
-  modalItemCost: {
-    fontSize: 14,
-    color: colors.text,
-    opacity: 0.8,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, backgroundColor: colors.white, borderBottomWidth: 1, borderBottomColor: colors.muted },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+  card: { backgroundColor: colors.white, borderRadius: 12, padding: 16, marginBottom: 16, elevation: 2 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 6 },
+  input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.muted, borderRadius: 8, padding: 12, fontSize: 16, color: colors.text, marginBottom: 16 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text },
+  ingredientRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, padding: 12, borderRadius: 8, marginBottom: 8 },
+  ingredientInfo: { flex: 1 },
+  ingredientName: { fontSize: 15, fontWeight: '600', color: colors.text },
+  ingredientCost: { fontSize: 12, color: colors.text, opacity: 0.7 },
+  qtyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, borderRadius: 6, borderWidth: 1, borderColor: colors.muted, paddingHorizontal: 8, marginRight: 12, width: 80 },
+  qtyInput: { flex: 1, paddingVertical: 8, fontSize: 15, textAlign: 'center' },
+  qtyUnit: { fontSize: 12, color: colors.text, opacity: 0.6 },
+  divider: { height: 1, backgroundColor: colors.muted, marginVertical: 12 },
+  pricingCard: { backgroundColor: colors.white, borderRadius: 12, marginBottom: 24, elevation: 3, overflow: 'hidden' },
+  pricingHeader: { backgroundColor: colors.accent, flexDirection: 'row', alignItems: 'center', padding: 16 },
+  pricingTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
+  pricingBody: { padding: 16 },
+  calcRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  calcLabel: { fontSize: 14, color: colors.text, opacity: 0.8 },
+  calcValue: { fontSize: 14, color: colors.text, fontWeight: '500' },
+  suggestedPriceBox: { backgroundColor: colors.secondary, borderRadius: 8, padding: 16, alignItems: 'center' },
+  suggestedLabel: { fontSize: 12, fontWeight: 'bold', opacity: 0.7 },
+  suggestedValue: { fontSize: 32, fontWeight: 'bold', color: colors.text },
+  profitText: { fontSize: 13, fontWeight: '500', color: colors.text, marginTop: 4 },
+  saveButton: { backgroundColor: colors.primary, paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
+  saveButtonText: { color: colors.text, fontSize: 18, fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '85%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+  modalSectionHeader: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.muted, marginBottom: 5, marginTop: 10 },
+  modalSectionTitle: { fontSize: 13, fontWeight: 'bold', color: colors.primary, marginLeft: 8, textTransform: 'uppercase' },
+  modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.muted },
+  modalItemName: { fontSize: 16, fontWeight: '500' },
+  modalItemType: { fontSize: 12, color: colors.text, opacity: 0.5 },
+  modalItemCost: { fontSize: 14, opacity: 0.8 },
+  qtyModalContent: { paddingBottom: 40 },
+  qtyModalSubtitle: { fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  unitToggleRow: { flexDirection: 'row', backgroundColor: colors.background, borderRadius: 12, padding: 4, marginBottom: 24 },
+  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  toggleBtnActive: { backgroundColor: colors.white, elevation: 2 },
+  qtyInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  bigQtyInput: { fontSize: 48, fontWeight: 'bold', color: colors.primary, textAlign: 'center', minWidth: 100 },
+  bigQtyUnit: { fontSize: 24, opacity: 0.5, marginLeft: 10 },
 });
-

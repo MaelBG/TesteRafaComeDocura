@@ -6,6 +6,7 @@ import LandingPage from './src/screens/LandingPage';
 import TabNavigator from './src/navigation/TabNavigator';
 import CreateRecipeScreen from './src/screens/CreateRecipeScreen';
 import CreateProductScreen from './src/screens/CreateProductScreen';
+import MarketListScreen from './src/screens/MarketListScreen';
 import { RootStackParamList } from './src/navigation/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -24,6 +25,7 @@ export default function App() {
           <Stack.Screen name="Main" component={TabNavigator} />
           <Stack.Screen name="CreateRecipe" component={CreateRecipeScreen} />
           <Stack.Screen name="CreateProduct" component={CreateProductScreen} />
+          <Stack.Screen name="MarketList" component={MarketListScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

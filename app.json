@@ -21,10 +21,19 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.maelgaldino.TesteRafaComeDocura"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0e6153ca-9535-46a2-b2e6-da33405e7340"
+      }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

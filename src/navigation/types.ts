@@ -15,4 +15,5 @@ export type RootStackParamList = {
   Main: NavigatorScreenParams<TabParamList> | undefined;
   CreateRecipe: { recipeId?: string } | undefined;
   CreateProduct: { productId?: string } | undefined;
+  MarketList: undefined;
 };

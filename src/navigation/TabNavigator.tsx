@@ -85,7 +85,7 @@ export default function TabNavigator() {
         name="Products" 
         component={ProductsScreen} 
         options={{
-          title: 'Produtos',
+          title: 'Doces',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="cupcake" color={color} size={size} />
           ),

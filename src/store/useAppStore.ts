@@ -8,6 +8,8 @@ export interface Packaging {
   price: number;
   quantity: number;
   unit: string;
+  stock: number;
+  category?: string; // NOVO
 }
 
 export interface Ingredient {
@@ -16,10 +18,12 @@ export interface Ingredient {
   price: number;
   quantity: number;
   unit: string;
+  stock: number;
+  category?: string; // NOVO
 }
 
 export interface RecipeItem {
-  id: string; // id da relação
+  id: string;
   ingredientId: string;
   usedQuantity: number;
 }
@@ -30,6 +34,7 @@ export interface Recipe {
   yieldQuantity: number;
   yieldUnit: string;
   items: RecipeItem[];
+  category?: string; // NOVO
 }
 
 export interface ProductComponent {
@@ -55,9 +60,8 @@ export interface Sale {
 }
 
 export interface Settings {
-  salary: number;
-  hoursPerDay: number;
-  daysPerWeek: number;
+  hourlyRate: number;
+  workerProfile: 'beginner' | 'professional' | 'expert';
   fixedCostsPercent: number;
   profitMarginPercent: number;
 }
@@ -100,10 +104,9 @@ interface AppState {
 
 // Configuração padrão
 const defaultSettings: Settings = {
-  salary: 2000,
-  hoursPerDay: 8,
-  daysPerWeek: 5,
-  fixedCostsPercent: 15,
+  hourlyRate: 15,
+  workerProfile: 'beginner',
+  fixedCostsPercent: 12,
   profitMarginPercent: 40,
 };
 

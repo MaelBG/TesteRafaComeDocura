@@ -18,37 +18,36 @@ export default function SettingsScreen() {
   const { settings, updateSettings } = useAppStore();
 
   // Estados locais para edição (populados com o valor global na montagem)
-  const [salary, setSalary] = useState(settings.salary.toString().replace('.', ','));
-  const [hoursPerDay, setHoursPerDay] = useState(settings.hoursPerDay.toString());
-  const [daysPerWeek, setDaysPerWeek] = useState(settings.daysPerWeek.toString());
+  const [hourlyRate, setHourlyRate] = useState(settings.hourlyRate.toString().replace('.', ','));
+  const [workerProfile, setWorkerProfile] = useState<'beginner' | 'professional' | 'expert'>(settings.workerProfile);
   const [fixedCostsPercent, setFixedCostsPercent] = useState(settings.fixedCostsPercent.toString());
   const [profitMargin, setProfitMargin] = useState(settings.profitMarginPercent.toString());
 
   // Atualiza os inputs se o estado global mudar em outro lugar
   useEffect(() => {
-    setSalary(settings.salary.toFixed(2).replace('.', ','));
-    setHoursPerDay(settings.hoursPerDay.toString());
-    setDaysPerWeek(settings.daysPerWeek.toString());
+    setHourlyRate(settings.hourlyRate.toFixed(2).replace('.', ','));
+    setWorkerProfile(settings.workerProfile);
     setFixedCostsPercent(settings.fixedCostsPercent.toString());
     setProfitMargin(settings.profitMarginPercent.toString());
   }, [settings]);
 
-  // Cálculos baseados nos inputs atuais
-  const parsedSalary = parseFloat(salary.replace(',', '.')) || 0;
-  const parsedHours = parseFloat(hoursPerDay) || 0;
-  const parsedDays = parseFloat(daysPerWeek) || 0;
-  
-  // (Horas/dia * Dias/semana * 4 semanas/mês)
-  const totalHoursMonth = parsedHours * parsedDays * 4;
-  const hourlyRate = totalHoursMonth > 0 ? (parsedSalary / totalHoursMonth) : 0;
+  const selectProfile = (profile: 'beginner' | 'professional' | 'expert', recommendedRate: number) => {
+    setWorkerProfile(profile);
+    setHourlyRate(recommendedRate.toFixed(2).replace('.', ','));
+  };
 
   const handleSave = () => {
+    const parsedRate = parseFloat(hourlyRate.replace(',', '.')) || 0;
+    if (parsedRate < 0) {
+      Alert.alert('Erro', 'O valor da hora não pode ser negativo.');
+      return;
+    }
+
     updateSettings({
-      salary: parsedSalary,
-      hoursPerDay: parsedHours,
-      daysPerWeek: parsedDays,
-      fixedCostsPercent: parseFloat(fixedCostsPercent) || 0,
-      profitMarginPercent: parseFloat(profitMargin) || 0,
+      hourlyRate: parsedRate,
+      workerProfile,
+      fixedCostsPercent: parseFloat(fixedCostsPercent.replace(',', '.')) || 0,
+      profitMarginPercent: parseFloat(profitMargin.replace(',', '.')) || 0,
     });
     Alert.alert('Sucesso', 'Configurações salvas com sucesso!');
   };
@@ -63,55 +62,76 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         
-        {/* Seção: Mão de Obra */}
+        {/* Assistente de Mão de Obra */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <MaterialCommunityIcons name="account-hard-hat" size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>Sua Mão de Obra</Text>
           </View>
           <Text style={styles.sectionDescription}>
-            Defina o quanto você quer ganhar para calcularmos o custo da sua hora de trabalho.
+            Como você se vê hoje na confeitaria? Escolha um perfil para calcularmos um valor justo para a sua hora de trabalho.
           </Text>
 
+          <View style={styles.profilesContainer}>
+            {/* Iniciante */}
+            <TouchableOpacity 
+              style={[styles.profileCard, workerProfile === 'beginner' && styles.profileCardActive]}
+              onPress={() => selectProfile('beginner', 15)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.profileHeader}>
+                <MaterialCommunityIcons name="seed-outline" size={20} color={workerProfile === 'beginner' ? colors.white : colors.primary} />
+                <Text style={[styles.profileTitle, workerProfile === 'beginner' && styles.textWhite]}>Iniciante / Extra</Text>
+              </View>
+              <Text style={[styles.profileDesc, workerProfile === 'beginner' && styles.textWhite]}>
+                Faço doces nas horas vagas e estou ganhando velocidade.
+              </Text>
+              <Text style={[styles.profileRate, workerProfile === 'beginner' && styles.textWhite]}>Sugerido: ~R$ 15/h</Text>
+            </TouchableOpacity>
+
+            {/* Profissional */}
+            <TouchableOpacity 
+              style={[styles.profileCard, workerProfile === 'professional' && styles.profileCardActive]}
+              onPress={() => selectProfile('professional', 20)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.profileHeader}>
+                <MaterialCommunityIcons name="chef-hat" size={20} color={workerProfile === 'professional' ? colors.white : colors.primary} />
+                <Text style={[styles.profileTitle, workerProfile === 'professional' && styles.textWhite]}>Profissional</Text>
+              </View>
+              <Text style={[styles.profileDesc, workerProfile === 'professional' && styles.textWhite]}>
+                É minha renda principal, já tenho técnica e clientes fixos.
+              </Text>
+              <Text style={[styles.profileRate, workerProfile === 'professional' && styles.textWhite]}>Sugerido: ~R$ 20/h</Text>
+            </TouchableOpacity>
+
+            {/* Especialista */}
+            <TouchableOpacity 
+              style={[styles.profileCard, workerProfile === 'expert' && styles.profileCardActive]}
+              onPress={() => selectProfile('expert', 35)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.profileHeader}>
+                <MaterialCommunityIcons name="crown-outline" size={20} color={workerProfile === 'expert' ? colors.white : colors.primary} />
+                <Text style={[styles.profileTitle, workerProfile === 'expert' && styles.textWhite]}>Especialista</Text>
+              </View>
+              <Text style={[styles.profileDesc, workerProfile === 'expert' && styles.textWhite]}>
+                Faço doces finos, modelagens complexas ou grandes eventos.
+              </Text>
+              <Text style={[styles.profileRate, workerProfile === 'expert' && styles.textWhite]}>Sugerido: R$ 35+/h</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Salário Desejado Mensal (R$)</Text>
+            <Text style={styles.label}>Valor da Minha Hora (R$)</Text>
+            <Text style={styles.helperText}>Você pode ajustar o valor manualmente se preferir.</Text>
             <TextInput
               style={styles.input}
               keyboardType="numeric"
-              value={salary}
-              onChangeText={setSalary}
-              placeholder="Ex: 2500,00"
+              value={hourlyRate}
+              onChangeText={setHourlyRate}
+              placeholder="Ex: 15,00"
             />
-          </View>
-
-          <View style={styles.row}>
-            <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-              <Text style={styles.label}>Horas / Dia</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={hoursPerDay}
-                onChangeText={setHoursPerDay}
-                placeholder="Ex: 8"
-              />
-            </View>
-            <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-              <Text style={styles.label}>Dias / Semana</Text>
-              <TextInput
-                style={styles.input}
-                keyboardType="numeric"
-                value={daysPerWeek}
-                onChangeText={setDaysPerWeek}
-                placeholder="Ex: 5"
-              />
-            </View>
-          </View>
-
-          <View style={styles.resultBox}>
-            <Text style={styles.resultLabel}>Custo da sua Hora (Aprox.)</Text>
-            <Text style={styles.resultValue}>
-              R$ {hourlyRate.toFixed(2).replace('.', ',')} / hora
-            </Text>
           </View>
         </View>
 
@@ -122,19 +142,19 @@ export default function SettingsScreen() {
             <Text style={styles.sectionTitle}>Custos e Margem</Text>
           </View>
           <Text style={styles.sectionDescription}>
-            Taxas padrões que serão aplicadas em todos os seus produtos finais.
+            Taxas padrões aplicadas conforme as regras de negócio do app.
           </Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Custos Fixos Invariáveis (%)</Text>
-            <Text style={styles.helperText}>Adicional para cobrir água, luz, gás, detergente, etc.</Text>
+            <Text style={styles.label}>Custos Fixos Indiretos (%)</Text>
+            <Text style={styles.helperText}>Cobre água, luz, gás e perdas. Sugerido: 12%.</Text>
             <View style={styles.inputWithIcon}>
               <TextInput
                 style={[styles.input, { flex: 1, marginBottom: 0 }]}
                 keyboardType="numeric"
                 value={fixedCostsPercent}
                 onChangeText={setFixedCostsPercent}
-                placeholder="Ex: 15"
+                placeholder="Ex: 12"
               />
               <Text style={styles.percentIcon}>%</Text>
             </View>
@@ -209,12 +229,48 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 20,
   },
+  profilesContainer: {
+    marginBottom: 20,
+  },
+  profileCard: {
+    borderWidth: 2,
+    borderColor: colors.muted,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    backgroundColor: colors.white,
+  },
+  profileCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  profileTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginLeft: 8,
+  },
+  profileDesc: {
+    fontSize: 13,
+    color: colors.text,
+    opacity: 0.8,
+    marginBottom: 8,
+  },
+  profileRate: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  textWhite: {
+    color: colors.white,
+  },
   inputGroup: {
     marginBottom: 16,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   label: {
     fontSize: 14,
@@ -246,24 +302,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginLeft: 12,
-  },
-  resultBox: {
-    backgroundColor: colors.secondary,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  resultLabel: {
-    fontSize: 14,
-    color: colors.text,
-    opacity: 0.8,
-    marginBottom: 4,
-  },
-  resultValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
   },
   saveButton: {
     backgroundColor: colors.accent,

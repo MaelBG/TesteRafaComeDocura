@@ -59,9 +59,9 @@ export default function ProductsScreen() {
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <Text style={styles.itemName}>{item.name || 'Sem nome'}</Text>
+          <View style={{ flex: 1, paddingRight: 8 }}>
+            <Text style={styles.itemName}>{item.name || 'Sem nome'}</Text>
+            <View style={styles.metaRow}>
               <View style={[styles.profileBadge, { backgroundColor: badge.color }]}>
                 <MaterialCommunityIcons name={badge.icon as any} size={12} color={colors.white} />
                 <Text style={styles.profileBadgeText}>{badge.label}</Text>
@@ -225,13 +225,21 @@ const styles = StyleSheet.create({
     color: colors.primary,
     marginTop: 2,
   },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 4,
+    marginBottom: 6,
+  },
   profileBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 10,
     gap: 4,
+    alignSelf: 'flex-start',
   },
   profileBadgeText: {
     color: colors.white,

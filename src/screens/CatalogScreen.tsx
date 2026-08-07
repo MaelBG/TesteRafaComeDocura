@@ -9,27 +9,12 @@ import ProductsScreen from './ProductsScreen';
 type Segment = 'recipes' | 'products';
 
 export default function CatalogScreen() {
-  const [activeSegment, setActiveSegment] = useState<Segment>('products');
+  const [activeSegment, setActiveSegment] = useState<Segment>('recipes');
 
   return (
     <View style={styles.container}>
       {/* Top Segmented Pill Bar */}
       <View style={styles.segmentedContainer}>
-        <TouchableOpacity
-          style={[styles.segmentButton, activeSegment === 'products' && styles.segmentActive]}
-          onPress={() => setActiveSegment('products')}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons 
-            name="cupcake" 
-            size={18} 
-            color={activeSegment === 'products' ? colors.white : colors.textMuted} 
-          />
-          <Text style={[styles.segmentText, activeSegment === 'products' && styles.segmentTextActive]}>
-            Doces Precificados
-          </Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={[styles.segmentButton, activeSegment === 'recipes' && styles.segmentActive]}
           onPress={() => setActiveSegment('recipes')}
@@ -44,12 +29,27 @@ export default function CatalogScreen() {
             Receitas Base
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.segmentButton, activeSegment === 'products' && styles.segmentActive]}
+          onPress={() => setActiveSegment('products')}
+          activeOpacity={0.8}
+        >
+          <MaterialCommunityIcons 
+            name="cupcake" 
+            size={18} 
+            color={activeSegment === 'products' ? colors.white : colors.textMuted} 
+          />
+          <Text style={[styles.segmentText, activeSegment === 'products' && styles.segmentTextActive]}>
+            Doces Precificados
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Segment Content */}
       <View style={styles.content}>
-        {activeSegment === 'products' && <ProductsScreen />}
         {activeSegment === 'recipes' && <RecipesScreen />}
+        {activeSegment === 'products' && <ProductsScreen />}
       </View>
     </View>
   );

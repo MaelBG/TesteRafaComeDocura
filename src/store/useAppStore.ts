@@ -105,6 +105,10 @@ interface AppState {
   addSale: (sale: Omit<Sale, 'id'>) => void;
   removeSale: (id: string) => void;
 
+  // Ações de Baixa de Estoque Atômicas
+  deductRecipeStock: (recipeId: string, multiplier?: number) => void;
+  deductProductStock: (productId: string, quantity?: number) => void;
+
   // Ações Settings
   updateSettings: (settings: Partial<Settings>) => void;
 
@@ -310,6 +314,85 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           sales: state.sales.filter((s) => s.id !== id),
         })),
+
+      // Dedução Atômica de Estoque por Produção de Receita Base
+      deductRecipeStock: (recipeId: string, multiplier: number = 1) =>
+        set((state) => {
+          const recipe = state.recipes.find((r) => r.id === recipeId);
+          if (!recipe) return state;
+
+          const updatedIngredients = state.ingredients.map((ing) => {
+            const item = recipe.items.find((ri) => ri.ingredientId === ing.id);
+            if (!item || !ing.quantity || ing.quantity <= 0) return ing;
+
+            const totalGramsUsed = (item.usedQuantity || 0) * multiplier;
+            const packagesUsed = totalGramsUsed / ing.quantity;
+            const newStock = Math.max(0, (ing.stock || 0) - packagesUsed);
+            return { ...ing, stock: parseFloat(newStock.toFixed(2)) };
+          });
+
+          return { ingredients: updatedIngredients };
+        }),
+
+      // Dedução Atômica de Estoque por Venda ou Produção de Produto Final
+      deductProductStock: (productId: string, quantity: number = 1) =>
+        set((state) => {
+          const product = state.products.find((p) => p.id === productId);
+          if (!product) return state;
+
+          const batchYield = (product.batchYieldQuantity && product.batchYieldQuantity > 0) ? product.batchYieldQuantity : 1;
+          const usageRatio = quantity / batchYield;
+
+          // 1. Atualizar Ingredientes Diretos e de Receitas
+          let updatedIngredients = [...state.ingredients];
+
+          product.components.forEach((comp) => {
+            if (comp.type === 'ingredient') {
+              updatedIngredients = updatedIngredients.map((ing) => {
+                if (ing.id !== comp.componentId || !ing.quantity || ing.quantity <= 0) return ing;
+                const totalGramsUsed = comp.usedQuantity * usageRatio;
+                const packagesUsed = totalGramsUsed / ing.quantity;
+                const newStock = Math.max(0, (ing.stock || 0) - packagesUsed);
+                return { ...ing, stock: parseFloat(newStock.toFixed(2)) };
+              });
+            } else if (comp.type === 'recipe') {
+              const recipe = state.recipes.find((r) => r.id === comp.componentId);
+              if (recipe && recipe.yieldQuantity > 0) {
+                const totalRecipeYieldUsed = comp.usedQuantity * usageRatio;
+                const recipeUsageFactor = totalRecipeYieldUsed / recipe.yieldQuantity;
+
+                recipe.items.forEach((item) => {
+                  updatedIngredients = updatedIngredients.map((ing) => {
+                    if (ing.id !== item.ingredientId || !ing.quantity || ing.quantity <= 0) return ing;
+                    const totalGramsUsed = item.usedQuantity * recipeUsageFactor;
+                    const packagesUsed = totalGramsUsed / ing.quantity;
+                    const newStock = Math.max(0, (ing.stock || 0) - packagesUsed);
+                    return { ...ing, stock: parseFloat(newStock.toFixed(2)) };
+                  });
+                });
+              }
+            }
+          });
+
+          // 2. Atualizar Embalagens
+          let updatedPackagings = [...state.packagings];
+          product.components.forEach((comp) => {
+            if (comp.type === 'packaging') {
+              updatedPackagings = updatedPackagings.map((pkg) => {
+                if (pkg.id !== comp.componentId || !pkg.quantity || pkg.quantity <= 0) return pkg;
+                const totalUnitsUsed = comp.usedQuantity * usageRatio;
+                const packagesUsed = totalUnitsUsed / pkg.quantity;
+                const newStock = Math.max(0, (pkg.stock || 0) - packagesUsed);
+                return { ...pkg, stock: parseFloat(newStock.toFixed(2)) };
+              });
+            }
+          });
+
+          return {
+            ingredients: updatedIngredients,
+            packagings: updatedPackagings,
+          };
+        }),
 
       updateSettings: (newSettings) =>
         set((state) => ({

@@ -160,7 +160,9 @@ export default function IngredientsScreen() {
               ) : null}
               <View style={styles.stockBadge}>
                 <MaterialCommunityIcons name="archive-outline" size={13} color={colors.textMuted} style={{ marginRight: 3 }} />
-                <Text style={styles.stockText}>Estoque: {item.stock || 0} pct(s)/unid.</Text>
+                <Text style={styles.stockText}>
+                  Estoque: {((item.stock || 0) % 1 === 0 ? (item.stock || 0) : (item.stock || 0).toFixed(1)).toString().replace('.', ',')} pct(s)/unid.
+                </Text>
               </View>
             </View>
           </View>

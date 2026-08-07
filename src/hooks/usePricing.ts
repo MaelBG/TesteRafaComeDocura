@@ -105,14 +105,18 @@ export const pricingCalculator = (data: {
       return acc;
     }, 0);
 
-    const contentRealCost = (ingredientsBaseCost * lossFactor) + recipesRealCost;
-    const indirectCost = contentRealCost * indirectRate;
-    const laborCost = getLaborCost(
+    const batchContentRealCost = (ingredientsBaseCost * lossFactor) + recipesRealCost;
+    const batchIndirectCost = batchContentRealCost * indirectRate;
+    const batchLaborCost = getLaborCost(
       product.productionTimeMinutes || 0,
       product.decorationTimeMinutes || 0
     );
 
-    return contentRealCost + indirectCost + laborCost;
+    const totalBatchProductionCost = batchContentRealCost + batchIndirectCost + batchLaborCost;
+
+    // Se informado o rendimento do lote (ex: rendeu 18 potes), divide pelo rendimento para ter o custo unitário do doce
+    const batchYield = (product.batchYieldQuantity && product.batchYieldQuantity > 0) ? product.batchYieldQuantity : 1;
+    return totalBatchProductionCost / batchYield;
   };
 
   const getProductUnitCost = (product: Product) => {

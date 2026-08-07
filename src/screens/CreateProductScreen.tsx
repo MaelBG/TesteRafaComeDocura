@@ -55,13 +55,12 @@ export default function CreateProductScreen() {
   const [productionTimeMinutes, setProductionTimeMinutes] = useState('');
   const [decorationTimeMinutes, setDecorationTimeMinutes] = useState('');
   const [pricingProfile, setPricingProfile] = useState<PricingProfileType>('padrao');
+  const [batchYieldQuantity, setBatchYieldQuantity] = useState('1');
   const [targetWeightKg, setTargetWeightKg] = useState('');
-  const [actualSellingPrice, setActualSellingPrice] = useState('');
-  
+
   const [components, setComponents] = useState<LocalComponent[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'content' | 'packaging'>('content');
-
   // Estados para o Modal de Quantidade
   const [quantityModalVisible, setQuantityModalVisible] = useState(false);
   const [selectedCompForQty, setSelectedCompForQty] = useState<any | null>(null);
@@ -122,8 +121,8 @@ export default function CreateProductScreen() {
         setProductionTimeMinutes(existingProduct.productionTimeMinutes.toString().replace('.', ','));
         if (existingProduct.pricingProfile) setPricingProfile(existingProduct.pricingProfile);
         if (existingProduct.decorationTimeMinutes) setDecorationTimeMinutes(existingProduct.decorationTimeMinutes.toString().replace('.', ','));
+        if (existingProduct.batchYieldQuantity) setBatchYieldQuantity(existingProduct.batchYieldQuantity.toString().replace('.', ','));
         if (existingProduct.targetWeightKg) setTargetWeightKg(existingProduct.targetWeightKg.toString().replace('.', ','));
-        if (existingProduct.actualSellingPrice) setActualSellingPrice(existingProduct.actualSellingPrice.toString().replace('.', ','));
 
         const loadedComponents = existingProduct.components.map(comp => {
           let name = 'Item removido';
@@ -171,8 +170,8 @@ export default function CreateProductScreen() {
     productionTimeMinutes: parseFloat(productionTimeMinutes.toString().replace(',', '.')) || 0,
     decorationTimeMinutes: parseFloat(decorationTimeMinutes.toString().replace(',', '.')) || 0,
     pricingProfile,
+    batchYieldQuantity: parseFloat(batchYieldQuantity.toString().replace(',', '.')) || 1,
     targetWeightKg: parseFloat(targetWeightKg.toString().replace(',', '.')) || 0,
-    actualSellingPrice: parseFloat(actualSellingPrice.toString().replace(',', '.')) || 0,
     components: components.map(c => ({
       id: c.id,
       componentId: c.componentId,
@@ -207,8 +206,8 @@ export default function CreateProductScreen() {
       productionTimeMinutes: tempProduct.productionTimeMinutes,
       decorationTimeMinutes: tempProduct.decorationTimeMinutes,
       pricingProfile,
+      batchYieldQuantity: tempProduct.batchYieldQuantity,
       targetWeightKg: tempProduct.targetWeightKg,
-      actualSellingPrice: tempProduct.actualSellingPrice,
       components: formattedComponents,
     };
 
@@ -300,18 +299,22 @@ export default function CreateProductScreen() {
                 <TextInput style={styles.input} placeholder="Ex: 15" keyboardType="numeric" value={productionTimeMinutes} onChangeText={(val) => setProductionTimeMinutes(val.replace(',', '.'))} />
               </View>
 
-              {pricingProfile === 'bolo_festa' && (
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Rendimento Lote (un)</Text>
+                <TextInput style={styles.input} placeholder="Ex: 18 potes" keyboardType="numeric" value={batchYieldQuantity} onChangeText={(val) => setBatchYieldQuantity(val.replace(',', '.'))} />
+              </View>
+            </View>
+
+            {pricingProfile === 'bolo_festa' && (
+              <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Decoração (min)</Text>
                   <TextInput style={styles.input} placeholder="Ex: 30" keyboardType="numeric" value={decorationTimeMinutes} onChangeText={(val) => setDecorationTimeMinutes(val.replace(',', '.'))} />
                 </View>
-              )}
-            </View>
-
-            {pricingProfile === 'bolo_festa' && (
-              <View style={{ marginBottom: 16 }}>
-                <Text style={styles.label}>Peso Estimado (Kg)</Text>
-                <TextInput style={styles.input} placeholder="Ex: 1.5" keyboardType="numeric" value={targetWeightKg} onChangeText={(val) => setTargetWeightKg(val.replace(',', '.'))} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Peso Estimado (Kg)</Text>
+                  <TextInput style={styles.input} placeholder="Ex: 1.5" keyboardType="numeric" value={targetWeightKg} onChangeText={(val) => setTargetWeightKg(val.replace(',', '.'))} />
+                </View>
               </View>
             )}
           </View>

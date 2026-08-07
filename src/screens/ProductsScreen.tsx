@@ -68,6 +68,7 @@ export default function ProductsScreen() {
               </View>
             </View>
             <Text style={styles.itemDescription}>
+              {item.batchYieldQuantity && item.batchYieldQuantity > 1 ? `Lote: ${item.batchYieldQuantity} un | ` : ''}
               Montagem: {item.productionTimeMinutes || 0} min
               {item.decorationTimeMinutes ? ` | Decoração: ${item.decorationTimeMinutes} min` : ''}
             </Text>

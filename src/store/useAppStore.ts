@@ -52,6 +52,7 @@ export interface Product {
   productionTimeMinutes: number;
   decorationTimeMinutes?: number;
   pricingProfile?: PricingProfileType;
+  batchYieldQuantity?: number; // Rendimento total de doces/potes produzidos no lote
   targetWeightKg?: number;
   actualSellingPrice?: number;
   components: ProductComponent[];

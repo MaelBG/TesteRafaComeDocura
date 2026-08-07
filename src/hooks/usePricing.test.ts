@@ -178,4 +178,35 @@ describe('usePricing Logic Tests', () => {
     // Total produção: 11.50 + 2.07 + 26.25 = 39.82
     expect(getProductProductionCost(productBoloFesta)).toBeCloseTo(39.82, 2);
   });
+
+  test('Deve calcular o custo unitário dividindo o custo de produção do lote pela quantidade rendida (ex: 10 potes)', () => {
+    mockUseAppStore.mockReturnValue({
+      ingredients: [{ id: 'i1', name: 'Ninho', price: 20, quantity: 1000, unit: 'g' }],
+      recipes: [],
+      packagings: [{ id: 'p1', name: 'Pote 220ml', price: 20, quantity: 10, unit: 'un' }], // R$ 2.00 por pote
+      settings: defaultSettings,
+    });
+
+    const { getProductUnitCost } = usePricing();
+
+    const productBoloPote: any = {
+      id: 'pote1',
+      name: 'Bolo no Pote',
+      pricingProfile: 'bolo_pote', // 8% perda, 12% gás
+      productionTimeMinutes: 30,  // R$ 7.50 labor
+      batchYieldQuantity: 10,     // Rendeu 10 potes no lote
+      components: [
+        { id: 'c1', componentId: 'i1', type: 'ingredient', usedQuantity: 500 }, // R$ 10.00 de ingrediente
+        { id: 'c2', componentId: 'p1', type: 'packaging', usedQuantity: 1 }      // R$ 2.00 de pote por unidade
+      ]
+    };
+
+    // Insumos Lote com Perda (8%): 10 * 1.08 = 10.80
+    // Indireto Lote (12%): 10.80 * 0.12 = 1.296
+    // Mão de obra Lote: 7.50
+    // Produção Total Lote: 10.80 + 1.296 + 7.50 = 19.596
+    // Produção por Pote (1/10): 1.9596
+    // Custo Final por Pote (+ R$ 2.00 Embalagem): 1.9596 + 2.00 = 3.9596
+    expect(getProductUnitCost(productBoloPote)).toBeCloseTo(3.96, 2);
+  });
 });

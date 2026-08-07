@@ -20,12 +20,14 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore, Recipe } from '../store/useAppStore';
 import { usePricing } from '../hooks/usePricing';
+import { useStock } from '../hooks/useStock';
 
 export default function RecipesScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { recipes, removeRecipe, ingredients, updateIngredient } = useAppStore();
+  const { recipes, removeRecipe, ingredients } = useAppStore();
   const { getRecipeTotalCost } = usePricing();
+  const { deductRecipeStock } = useStock();
 
   // Estados para o Modo Produção
   const [productionModalVisible, setProductionModalVisible] = useState(false);
@@ -71,13 +73,7 @@ export default function RecipesScreen() {
           text: "Sim, dar baixa", 
           onPress: () => {
             const m = parseFloat(multiplier.replace(',', '.')) || 1;
-            selectedRecipe.items.forEach(item => {
-              const ing = ingredients.find(i => i.id === item.ingredientId);
-              if (ing) {
-                const usedQty = (item.usedQuantity || 0) * m;
-                updateIngredient(ing.id, { stock: Math.max(0, (ing.stock || 0) - usedQty) });
-              }
-            });
+            deductRecipeStock(selectedRecipe.id, m);
             Alert.alert("Sucesso", "Produção finalizada e estoque atualizado!");
             setProductionModalVisible(false);
           } 

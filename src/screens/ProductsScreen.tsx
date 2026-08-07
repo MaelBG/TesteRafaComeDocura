@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore, Product } from '../store/useAppStore';
 import { usePricing } from '../hooks/usePricing';
+import { useStock } from '../hooks/useStock';
 
 export default function ProductsScreen() {
   const { products, removeProduct, settings } = useAppStore();
@@ -26,6 +27,25 @@ export default function ProductsScreen() {
     getActualMarginAndProfit,
     getCostPerKg
   } = usePricing();
+  const { deductProductStock } = useStock();
+
+  const handleProduceBatch = (product: Product) => {
+    const batchQty = product.batchYieldQuantity || 1;
+    Alert.alert(
+      "Registrar Produção de Lote",
+      `Deseja dar baixa automática nos ingredientes e embalagens para a produção de 1 lote (${batchQty} un) de "${product.name}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Sim, dar baixa", 
+          onPress: () => {
+            deductProductStock(product.id, batchQty);
+            Alert.alert("Sucesso", "Estoque de ingredientes e embalagens atualizado com sucesso!");
+          } 
+        }
+      ]
+    );
+  };
 
   const handleRemove = (id: string) => {
     Alert.alert(
@@ -112,6 +132,17 @@ export default function ProductsScreen() {
             </View>
           </View>
         </View>
+
+        <TouchableOpacity 
+          style={styles.produceBtn}
+          activeOpacity={0.8}
+          onPress={() => handleProduceBatch(item)}
+        >
+          <MaterialCommunityIcons name="chef-hat" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.produceBtnText}>
+            Dar Baixa no Estoque (Produzir Lote: {item.batchYieldQuantity || 1}un)
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -322,5 +353,22 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginTop: 8,
     textAlign: 'center',
+  },
+  produceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  produceBtnText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.primary,
   },
 });

@@ -143,17 +143,17 @@ export default function PackagingScreen() {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-              <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <View style={styles.metaRow}>
               {item.category ? (
                 <View style={styles.categoryBadge}>
                   <Text style={styles.categoryText}>{item.category}</Text>
                 </View>
               ) : null}
-            </View>
-            <View style={styles.stockBadge}>
-              <MaterialCommunityIcons name="archive-outline" size={12} color={colors.text} style={{ marginRight: 4 }} />
-              <Text style={styles.stockText}>Em estoque: {Math.floor(item.stock || 0)} unid.</Text>
+              <View style={styles.stockBadge}>
+                <MaterialCommunityIcons name="archive-outline" size={13} color={colors.textMuted} style={{ marginRight: 3 }} />
+                <Text style={styles.stockText}>Em estoque: {Math.floor(item.stock || 0)} unid.</Text>
+              </View>
             </View>
           </View>
           <View style={styles.actionButtons}>
@@ -279,9 +279,10 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.white, borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   itemName: { fontSize: 18, fontWeight: 'bold', color: colors.text },
-  categoryBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, marginLeft: 8 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  categoryBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   categoryText: { fontSize: 10, fontWeight: 'bold', color: colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
-  stockBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, opacity: 0.7 },
+  stockBadge: { flexDirection: 'row', alignItems: 'center', opacity: 0.8 },
   stockText: { fontSize: 12, color: colors.text, fontWeight: '500' },
   actionButtons: { flexDirection: 'row', alignItems: 'center' },
   iconButton: { padding: 6, marginLeft: 8 },

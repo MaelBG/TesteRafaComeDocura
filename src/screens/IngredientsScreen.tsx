@@ -142,10 +142,16 @@ export default function IngredientsScreen() {
     setSelectedIngredient(null);
   };
 
+  const handleQuickStockDelta = (item: Ingredient, delta: number) => {
+    const current = item.stock || 0;
+    const newStock = Math.max(0, parseFloat((current + delta).toFixed(2)));
+    updateIngredient(item.id, { stock: newStock });
+  };
+
   const renderItem = ({ item }: { item: Ingredient }) => {
     const itemPrice = item.price || 0;
-    const itemQuantity = item.quantity || 0;
-    const costPerUnit = itemQuantity > 0 ? (itemPrice / itemQuantity).toFixed(3) : '0.000';
+    const itemQuantity = item.quantity || 1;
+    const costPerUnit = (itemPrice / itemQuantity).toFixed(3).replace('.', ',');
 
     return (
       <View style={styles.card}>
@@ -167,7 +173,10 @@ export default function IngredientsScreen() {
             </View>
           </View>
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => openQuickStockModal(item)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => handleQuickStockDelta(item, -1)}>
+              <MaterialCommunityIcons name="minus-circle-outline" size={24} color="#E56B6F" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => handleQuickStockDelta(item, 1)}>
               <MaterialCommunityIcons name="plus-circle" size={24} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item)}>

@@ -232,7 +232,7 @@ export default function RecipesScreen() {
             })}
 
             <TouchableOpacity 
-              style={[styles.finishBtn, checkedItems.length < (selectedRecipe?.items.length || 0) && styles.finishBtnDisabled]}
+              style={styles.finishBtn}
               onPress={handleFinishProduction}
             >
               <Text style={styles.finishBtnText}>Finalizar e Dar Baixa</Text>

@@ -134,10 +134,16 @@ export default function PackagingScreen() {
     setSelectedPackaging(null);
   };
 
+  const handleQuickStockDelta = (item: Packaging, delta: number) => {
+    const current = item.stock || 0;
+    const newStock = Math.max(0, parseFloat((current + delta).toFixed(2)));
+    updatePackaging(item.id, { stock: newStock });
+  };
+
   const renderItem = ({ item }: { item: Packaging }) => {
     const itemPrice = item.price || 0;
-    const itemQuantity = item.quantity || 0;
-    const costPerUnit = itemQuantity > 0 ? (itemPrice / itemQuantity).toFixed(3) : '0.000';
+    const itemQuantity = item.quantity || 1;
+    const costPerUnit = (itemPrice / itemQuantity).toFixed(3).replace('.', ',');
 
     return (
       <View style={styles.card}>
@@ -152,12 +158,17 @@ export default function PackagingScreen() {
               ) : null}
               <View style={styles.stockBadge}>
                 <MaterialCommunityIcons name="archive-outline" size={13} color={colors.textMuted} style={{ marginRight: 3 }} />
-                <Text style={styles.stockText}>Em estoque: {Math.floor(item.stock || 0)} unid.</Text>
+                <Text style={styles.stockText}>
+                  Estoque: {((item.stock || 0) % 1 === 0 ? (item.stock || 0) : (item.stock || 0).toFixed(1)).toString().replace('.', ',')} pct(s)/unid.
+                </Text>
               </View>
             </View>
           </View>
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => openQuickStockModal(item)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => handleQuickStockDelta(item, -1)}>
+              <MaterialCommunityIcons name="minus-circle-outline" size={24} color="#E56B6F" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => handleQuickStockDelta(item, 1)}>
               <MaterialCommunityIcons name="plus-circle" size={24} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item)}>

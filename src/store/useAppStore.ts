@@ -9,7 +9,9 @@ export interface Packaging {
   quantity: number;
   unit: string;
   stock: number;
+  brand?: string;
   category?: string;
+  lastPriceUpdate?: string;
 }
 
 export interface Ingredient {
@@ -19,7 +21,9 @@ export interface Ingredient {
   quantity: number;
   unit: string;
   stock: number;
+  brand?: string;
   category?: string;
+  lastPriceUpdate?: string;
 }
 
 export interface RecipeItem {
@@ -73,12 +77,46 @@ export interface Settings {
   profitMarginPercent: number;
 }
 
+export interface ProductionBatchItem {
+  targetId: string; // productId ou recipeId
+  type: 'product' | 'recipe';
+  name: string;
+  quantity: number; // Ex: 30 unidades ou 2 receitas
+}
+
+export interface ConsumedIngredientSummary {
+  id: string;
+  name: string;
+  brand?: string;
+  totalGramsOrUnits: number;
+  packagesUsed: number;
+  packageUnit: string;
+  totalCost: number;
+}
+
+export interface ProductionBatch {
+  id: string;
+  date: string;
+  title: string;
+  items: ProductionBatchItem[];
+  consumedIngredients: ConsumedIngredientSummary[];
+  totalIngredientsCost: number;
+  totalPackagingCost: number;
+  totalLaborCost: number;
+  totalFixedCost: number;
+  totalProductionCost: number;
+  totalEstimatedRevenue: number;
+  totalEstimatedProfit: number;
+  totalHoursWorked: number;
+}
+
 interface AppState {
   ingredients: Ingredient[];
   recipes: Recipe[];
   products: Product[];
   packagings: Packaging[];
   sales: Sale[];
+  productionBatches: ProductionBatch[];
   settings: Settings;
   
   // Ações Ingredientes
@@ -105,6 +143,10 @@ interface AppState {
   addSale: (sale: Omit<Sale, 'id'>) => void;
   removeSale: (id: string) => void;
 
+  // Ações de Fornadas / Diário de Produção
+  addProductionBatch: (batch: Omit<ProductionBatch, 'id'>) => void;
+  removeProductionBatch: (id: string) => void;
+
   // Ações de Baixa de Estoque Atômicas
   deductRecipeStock: (recipeId: string, multiplier?: number) => void;
   deductProductStock: (productId: string, quantity?: number) => void;
@@ -128,19 +170,19 @@ const defaultSettings: Settings = {
 
 // Dados Mockados para Demonstração e Testes
 export const mockIngredients: Ingredient[] = [
-  { id: 'ing-1', name: 'Leite Condensado Moça', price: 6.50, quantity: 395, unit: 'g', stock: 10, category: 'Laticínios' },
-  { id: 'ing-2', name: 'Creme de Leite Nestlé', price: 3.80, quantity: 200, unit: 'g', stock: 15, category: 'Laticínios' },
-  { id: 'ing-3', name: 'Chocolate em Pó 50% Melken', price: 22.00, quantity: 500, unit: 'g', stock: 5, category: 'Chocolates' },
-  { id: 'ing-4', name: 'Leite em Pó Ninho', price: 18.50, quantity: 400, unit: 'g', stock: 4, category: 'Laticínios' },
-  { id: 'ing-5', name: 'Farinha de Trigo Rosa Branca', price: 5.20, quantity: 1000, unit: 'g', stock: 8, category: 'Secos' },
-  { id: 'ing-6', name: 'Granulado Gourmet Cacau 32%', price: 28.00, quantity: 500, unit: 'g', stock: 3, category: 'Confeitos' },
+  { id: 'ing-1', name: 'Leite Condensado', brand: 'Moça', price: 6.50, quantity: 395, unit: 'g', stock: 10, category: 'Laticínios' },
+  { id: 'ing-2', name: 'Creme de Leite', brand: 'Nestlé', price: 3.80, quantity: 200, unit: 'g', stock: 15, category: 'Laticínios' },
+  { id: 'ing-3', name: 'Chocolate em Pó 50%', brand: 'Melken', price: 22.00, quantity: 500, unit: 'g', stock: 5, category: 'Chocolates' },
+  { id: 'ing-4', name: 'Leite em Pó', brand: 'Ninho', price: 18.50, quantity: 400, unit: 'g', stock: 4, category: 'Laticínios' },
+  { id: 'ing-5', name: 'Farinha de Trigo', brand: 'Rosa Branca', price: 5.20, quantity: 1000, unit: 'g', stock: 8, category: 'Secos' },
+  { id: 'ing-6', name: 'Granulado Gourmet 32%', brand: 'Melken', price: 28.00, quantity: 500, unit: 'g', stock: 3, category: 'Confeitos' },
 ];
 
 export const mockPackagings: Packaging[] = [
-  { id: 'pkg-1', name: 'Pote Plástico c/ Tampa 220ml', price: 12.00, quantity: 10, unit: 'un', stock: 50, category: 'Potes' },
-  { id: 'pkg-2', name: 'Forminha N° 5 Pétala Rosa', price: 8.00, quantity: 100, unit: 'un', stock: 200, category: 'Forminhas' },
-  { id: 'pkg-3', name: 'Cakeboard MDF 25cm', price: 10.00, quantity: 1, unit: 'un', stock: 5, category: 'Suportes' },
-  { id: 'pkg-4', name: 'Caixa para Bolo 25x25x20cm', price: 15.00, quantity: 1, unit: 'un', stock: 5, category: 'Caixas' },
+  { id: 'pkg-1', name: 'Pote Plástico c/ Tampa 220ml', brand: 'Galvanotek', price: 12.00, quantity: 10, unit: 'un', stock: 50, category: 'Potes' },
+  { id: 'pkg-2', name: 'Forminha N° 5 Pétala', brand: 'Regina Festas', price: 8.00, quantity: 100, unit: 'un', stock: 200, category: 'Forminhas' },
+  { id: 'pkg-3', name: 'Cakeboard MDF 25cm', brand: 'Art Laser', price: 10.00, quantity: 1, unit: 'un', stock: 5, category: 'Suportes' },
+  { id: 'pkg-4', name: 'Caixa para Bolo 25x25x20cm', brand: 'Scrap Sul', price: 15.00, quantity: 1, unit: 'un', stock: 5, category: 'Caixas' },
 ];
 
 export const mockRecipes: Recipe[] = [
@@ -228,6 +270,36 @@ export const mockSales: Sale[] = [
   { id: 'sale-2', productId: 'prod-2', quantity: 1, salePrice: 120.00, date: new Date().toISOString() },
 ];
 
+export const mockProductionBatches: ProductionBatch[] = [
+  {
+    id: 'batch-1',
+    date: new Date().toISOString(),
+    title: 'Produção Matutina - Bolos de Pote & Brigadeiros',
+    items: [
+      { targetId: 'prod-1', type: 'product', name: 'Bolo de Pote Ninho c/ Brigadeiro', quantity: 15 },
+      { targetId: 'prod-2', type: 'product', name: 'Cento de Brigadeiro Gourmet', quantity: 100 },
+    ],
+    consumedIngredients: [
+      { id: 'ing-1', name: 'Leite Condensado', brand: 'Moça', totalGramsOrUnits: 790, packagesUsed: 2.0, packageUnit: 'g', totalCost: 13.00 },
+      { id: 'ing-2', name: 'Creme de Leite', brand: 'Nestlé', totalGramsOrUnits: 400, packagesUsed: 2.0, packageUnit: 'g', totalCost: 7.60 },
+      { id: 'ing-3', name: 'Chocolate em Pó 50%', brand: 'Melken', totalGramsOrUnits: 50, packagesUsed: 0.1, packageUnit: 'g', totalCost: 2.20 },
+      { id: 'ing-4', name: 'Leite em Pó', brand: 'Ninho', totalGramsOrUnits: 100, packagesUsed: 0.25, packageUnit: 'g', totalCost: 4.63 },
+      { id: 'ing-5', name: 'Farinha de Trigo', brand: 'Rosa Branca', totalGramsOrUnits: 400, packagesUsed: 0.4, packageUnit: 'g', totalCost: 2.08 },
+      { id: 'ing-6', name: 'Granulado Gourmet 32%', brand: 'Melken', totalGramsOrUnits: 200, packagesUsed: 0.4, packageUnit: 'g', totalCost: 11.20 },
+      { id: 'pkg-1', name: 'Pote Plástico c/ Tampa 220ml', brand: 'Galvanotek', totalGramsOrUnits: 15, packagesUsed: 1.5, packageUnit: 'un', totalCost: 18.00 },
+      { id: 'pkg-2', name: 'Forminha N° 5 Pétala', brand: 'Regina Festas', totalGramsOrUnits: 100, packagesUsed: 1.0, packageUnit: 'un', totalCost: 8.00 },
+    ],
+    totalIngredientsCost: 40.71,
+    totalPackagingCost: 26.00,
+    totalLaborCost: 15.00,
+    totalFixedCost: 8.01,
+    totalProductionCost: 89.72,
+    totalEstimatedRevenue: 270.00,
+    totalEstimatedProfit: 180.28,
+    totalHoursWorked: 1.0,
+  }
+];
+
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
@@ -236,6 +308,7 @@ export const useAppStore = create<AppState>()(
       products: mockProducts,
       packagings: mockPackagings,
       sales: mockSales,
+      productionBatches: mockProductionBatches,
       settings: defaultSettings,
 
       loadMockData: () => set({
@@ -244,12 +317,13 @@ export const useAppStore = create<AppState>()(
         products: mockProducts,
         packagings: mockPackagings,
         sales: mockSales,
+        productionBatches: mockProductionBatches,
         settings: defaultSettings,
       }),
 
       addIngredient: (ingredient) => 
         set((state) => ({
-          ingredients: [{ id: Date.now().toString(), ...ingredient }, ...state.ingredients],
+          ingredients: [{ id: Date.now().toString(), lastPriceUpdate: new Date().toISOString(), ...ingredient }, ...state.ingredients],
         })),
 
       removeIngredient: (id) =>
@@ -259,22 +333,22 @@ export const useAppStore = create<AppState>()(
 
       updateIngredient: (id, data) =>
         set((state) => ({
-          ingredients: state.ingredients.map((i) => (i.id === id ? { ...i, ...data } : i)),
+          ingredients: state.ingredients.map((i) => (i.id === id ? { ...i, ...data, lastPriceUpdate: data.price !== undefined ? new Date().toISOString() : i.lastPriceUpdate } : i)),
         })),
 
       addPackaging: (packaging) => 
         set((state) => ({
-          packagings: [{ id: Date.now().toString(), ...packaging }, ...state.packagings],
+          packagings: [{ id: Date.now().toString(), lastPriceUpdate: new Date().toISOString(), ...packaging }, ...state.packagings],
         })),
 
       removePackaging: (id) =>
         set((state) => ({
-          packagings: state.packagings.filter((i) => i.id !== id),
+          packagings: state.packagings.filter((p) => p.id !== id),
         })),
 
       updatePackaging: (id, data) =>
         set((state) => ({
-          packagings: state.packagings.map((i) => (i.id === id ? { ...i, ...data } : i)),
+          packagings: state.packagings.map((p) => (p.id === id ? { ...p, ...data, lastPriceUpdate: data.price !== undefined ? new Date().toISOString() : p.lastPriceUpdate } : p)),
         })),
 
       addRecipe: (recipe) =>
@@ -315,6 +389,16 @@ export const useAppStore = create<AppState>()(
       removeSale: (id) =>
         set((state) => ({
           sales: state.sales.filter((s) => s.id !== id),
+        })),
+
+      addProductionBatch: (batch) =>
+        set((state) => ({
+          productionBatches: [{ id: Date.now().toString(), ...batch }, ...state.productionBatches],
+        })),
+
+      removeProductionBatch: (id) =>
+        set((state) => ({
+          productionBatches: state.productionBatches.filter((b) => b.id !== id),
         })),
 
       // Dedução Atômica de Estoque por Produção de Receita Base

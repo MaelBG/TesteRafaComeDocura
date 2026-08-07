@@ -27,9 +27,11 @@ export default function PackagingScreen() {
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [stock, setStock] = useState('');
   const [packagesBought, setPackagesBought] = useState('');
   const [currentStockUnits, setCurrentStockUnits] = useState(0);
   const [category, setCategory] = useState('');
+  const [brand, setBrand] = useState('');
 
   // Estados para o Modal de Entrada Rápida
   const [quickStockModalVisible, setQuickStockModalVisible] = useState(false);
@@ -57,6 +59,7 @@ export default function PackagingScreen() {
     if (editingId) {
       updatePackaging(editingId, {
         name,
+        brand: brand.trim() || undefined,
         price: parsedPrice,
         quantity: parsedQtyPerPackage,
         stock: finalStock,
@@ -65,6 +68,7 @@ export default function PackagingScreen() {
     } else {
       addPackaging({
         name,
+        brand: brand.trim() || undefined,
         price: parsedPrice,
         quantity: parsedQtyPerPackage,
         unit: 'un', 
@@ -79,6 +83,7 @@ export default function PackagingScreen() {
   const handleEdit = (item: Packaging) => {
     setEditingId(item.id);
     setName(item.name || '');
+    setBrand(item.brand || '');
     setPrice((item.price || 0).toString().replace('.', ','));
     setQuantity((item.quantity || 0).toString().replace('.', ','));
     setPackagesBought('0');
@@ -97,6 +102,7 @@ export default function PackagingScreen() {
   const openNewModal = () => {
     setEditingId(null);
     setName('');
+    setBrand('');
     setPrice('');
     setQuantity('');
     setPackagesBought(''); 
@@ -107,6 +113,8 @@ export default function PackagingScreen() {
 
   const closeModal = () => {
     setEditingId(null);
+    setName('');
+    setBrand('');
     setModalVisible(false);
   };
 
@@ -151,6 +159,11 @@ export default function PackagingScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.itemName}>{item.name}</Text>
             <View style={styles.metaRow}>
+              {item.brand ? (
+                <View style={styles.brandBadge}>
+                  <Text style={styles.brandBadgeText}>Marca: {item.brand}</Text>
+                </View>
+              ) : null}
               {item.category ? (
                 <View style={styles.categoryBadge}>
                   <Text style={styles.categoryText}>{item.category}</Text>
@@ -228,9 +241,12 @@ export default function PackagingScreen() {
                   <TouchableOpacity onPress={closeModal}><MaterialCommunityIcons name="close" size={24} color={colors.text} /></TouchableOpacity>
                 </View>
                 
-                <Text style={styles.inputLabel}>Nome da Embalagem</Text>
+                <Text style={styles.inputLabel}>Nome da Embalagem (Referência)</Text>
                 <TextInput style={styles.input} placeholder="Ex: Pote 250ml" value={name} onChangeText={setName} />
                 
+                <Text style={styles.inputLabel}>Marca / Fabricante (Opcional)</Text>
+                <TextInput style={styles.input} placeholder="Ex: Galvanotek, Regina" value={brand} onChangeText={setBrand} />
+
                 <Text style={styles.inputLabel}>Categoria (Opcional)</Text>
                 <TextInput style={styles.input} placeholder="Ex: Potes, Sacolas" value={category} onChangeText={setCategory} />
 
@@ -293,6 +309,8 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   categoryBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   categoryText: { fontSize: 10, fontWeight: 'bold', color: colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
+  brandBadge: { backgroundColor: '#E6F4F8', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  brandBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#1A5B70' },
   stockBadge: { flexDirection: 'row', alignItems: 'center', opacity: 0.8 },
   stockText: { fontSize: 12, color: colors.text, fontWeight: '500' },
   actionButtons: { flexDirection: 'row', alignItems: 'center' },

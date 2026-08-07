@@ -308,19 +308,12 @@ export default function CreateProductScreen() {
               )}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Preço Praticado R$ (Arredondado)</Text>
-                <TextInput style={styles.input} placeholder={`Sugerido: R$ ${suggestedPrice.toFixed(2)}`} keyboardType="numeric" value={actualSellingPrice} onChangeText={(val) => setActualSellingPrice(val.replace(',', '.'))} />
+            {pricingProfile === 'bolo_festa' && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={styles.label}>Peso Estimado (Kg)</Text>
+                <TextInput style={styles.input} placeholder="Ex: 1.5" keyboardType="numeric" value={targetWeightKg} onChangeText={(val) => setTargetWeightKg(val.replace(',', '.'))} />
               </View>
-
-              {pricingProfile === 'bolo_festa' && (
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Peso Estimado (Kg)</Text>
-                  <TextInput style={styles.input} placeholder="Ex: 1.5" keyboardType="numeric" value={targetWeightKg} onChangeText={(val) => setTargetWeightKg(val.replace(',', '.'))} />
-                </View>
-              )}
-            </View>
+            )}
           </View>
 
           <View style={styles.card}>

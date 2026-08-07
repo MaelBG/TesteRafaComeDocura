@@ -52,7 +52,7 @@ export default function ProductsScreen() {
     const totalCost = getProductUnitCost(item) || 0;
     const productionCost = getProductProductionCost(item) || 0;
     const suggestedPrice = getSuggestedPrice(item) || 0;
-    const actualData = getActualMarginAndProfit(item);
+    const profit = suggestedPrice - totalCost;
     const badge = getProfileBadgeInfo(item.pricingProfile);
     const costPerKg = item.pricingProfile === 'bolo_festa' ? getCostPerKg(item) : 0;
 
@@ -84,29 +84,29 @@ export default function ProductsScreen() {
         
         <View style={styles.costsContainer}>
           <View style={styles.costColumn}>
-            <Text style={styles.costLabel}>Custo Final</Text>
+            <Text style={styles.costLabel}>Custo Produção</Text>
+            <Text style={styles.costValue}>R$ {productionCost.toFixed(2).replace('.', ',')}</Text>
+          </View>
+          <View style={styles.costDivider} />
+          <View style={styles.costColumn}>
+            <Text style={styles.costLabel}>Custo Final (c/ Emb.)</Text>
             <Text style={styles.costValue}>R$ {totalCost.toFixed(2).replace('.', ',')}</Text>
             {costPerKg > 0 && (
               <Text style={styles.costSubValue}>R$ {costPerKg.toFixed(2).replace('.', ',')}/Kg</Text>
             )}
           </View>
-          <View style={styles.costDivider} />
-          <View style={styles.costColumn}>
-            <Text style={styles.costLabel}>Preço Sugerido</Text>
-            <Text style={styles.costValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text>
-          </View>
         </View>
 
         <View style={styles.priceContainer}>
           <View style={styles.priceHeader}>
-            <MaterialCommunityIcons name="tag-heart" size={18} color={colors.white} style={{ marginRight: 6 }} />
-            <Text style={styles.priceLabel}>Preço Praticado</Text>
+            <MaterialCommunityIcons name="star-circle" size={18} color={colors.white} style={{ marginRight: 6 }} />
+            <Text style={styles.priceLabel}>Preço Recomendado de Venda</Text>
           </View>
           <View style={styles.priceFooter}>
-            <Text style={styles.priceValue}>R$ {actualData.sellingPrice.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.priceValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text>
             <View style={styles.profitBadge}>
               <Text style={styles.profitBadgeText}>
-                Lucro: R$ {actualData.profit.toFixed(2).replace('.', ',')} ({actualData.marginPercent.toFixed(0)}%)
+                Lucro Limpo: R$ {profit.toFixed(2).replace('.', ',')} ({settings.profitMarginPercent || 0}%)
               </Text>
             </View>
           </View>

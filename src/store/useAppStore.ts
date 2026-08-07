@@ -185,7 +185,7 @@ export const mockProducts: Product[] = [
       { id: 'pc-1', componentId: 'rec-1', type: 'recipe', usedQuantity: 400 },
       { id: 'pc-2', componentId: 'rec-2', type: 'recipe', usedQuantity: 300 },
       { id: 'pc-3', componentId: 'rec-3', type: 'recipe', usedQuantity: 300 },
-      { id: 'pc-4', componentId: 'pkg-1', type: 'packaging', usedQuantity: 1 },
+      { id: 'pc-4', componentId: 'pkg-1', type: 'packaging', usedQuantity: 15 },
     ]
   },
   {
@@ -197,7 +197,7 @@ export const mockProducts: Product[] = [
     components: [
       { id: 'pc-5', componentId: 'rec-3', type: 'recipe', usedQuantity: 600 },
       { id: 'pc-6', componentId: 'ing-6', type: 'ingredient', usedQuantity: 200 },
-      { id: 'pc-7', componentId: 'pkg-2', type: 'packaging', usedQuantity: 1 },
+      { id: 'pc-7', componentId: 'pkg-2', type: 'packaging', usedQuantity: 100 },
     ]
   },
   {

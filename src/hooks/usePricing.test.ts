@@ -196,8 +196,8 @@ describe('usePricing Logic Tests', () => {
       productionTimeMinutes: 30,  // R$ 7.50 labor
       batchYieldQuantity: 10,     // Rendeu 10 potes no lote
       components: [
-        { id: 'c1', componentId: 'i1', type: 'ingredient', usedQuantity: 500 }, // R$ 10.00 de ingrediente
-        { id: 'c2', componentId: 'p1', type: 'packaging', usedQuantity: 1 }      // R$ 2.00 de pote por unidade
+        { id: 'c1', componentId: 'i1', type: 'ingredient', usedQuantity: 500 }, // R$ 10.00 de ingrediente no lote
+        { id: 'c2', componentId: 'p1', type: 'packaging', usedQuantity: 10 }     // 10 potes no lote (R$ 20.00 total) -> R$ 2.00/pote
       ]
     };
 

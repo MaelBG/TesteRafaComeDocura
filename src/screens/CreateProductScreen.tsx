@@ -69,7 +69,7 @@ export default function CreateProductScreen() {
 
   const handleOpenQuantityModal = (comp: any) => {
     setSelectedCompForQty(comp);
-    setInputQty(comp.type === 'packaging' ? '1' : '');
+    setInputQty(comp.type === 'packaging' ? (batchYieldQuantity || '1') : '');
     setInputUnit('base');
     setQuantityModalVisible(true);
     setModalVisible(false);

@@ -114,21 +114,25 @@ export const pricingCalculator = (data: {
 
     const totalBatchProductionCost = batchContentRealCost + batchIndirectCost + batchLaborCost;
 
-    // Se informado o rendimento do lote (ex: rendeu 18 potes), divide pelo rendimento para ter o custo unitário do doce
     const batchYield = (product.batchYieldQuantity && product.batchYieldQuantity > 0) ? product.batchYieldQuantity : 1;
     return totalBatchProductionCost / batchYield;
   };
 
   const getProductUnitCost = (product: Product) => {
-    const productionCost = getProductProductionCost(product);
-    const packagingCost = product.components.reduce((acc, comp) => {
+    const productionUnitCost = getProductProductionCost(product);
+    const batchYield = (product.batchYieldQuantity && product.batchYieldQuantity > 0) ? product.batchYieldQuantity : 1;
+
+    const packagingBatchCost = product.components.reduce((acc, comp) => {
       if (comp.type === 'packaging') {
         return acc + getPackagingUnitCost(comp.componentId) * comp.usedQuantity;
       }
       return acc;
     }, 0);
 
-    return productionCost + packagingCost;
+    // Custo de embalagem por unidade (dividido pelo rendimento do lote)
+    const packagingUnitCost = packagingBatchCost / batchYield;
+
+    return productionUnitCost + packagingUnitCost;
   };
 
   const getSuggestedPrice = (product: Product) => {

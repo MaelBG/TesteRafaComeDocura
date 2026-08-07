@@ -47,6 +47,21 @@ describe('useStock Hook - Testes Rigorosos de Baixa de Estoque', () => {
     });
   });
 
+  test('Deve subtrair automaticamente no estoque ao salvar uma nova receita que usa 5 latas de leite condensado', () => {
+    const { deductRecipeItems } = useStock();
+
+    // 10 latas de Leite Condensado em estoque
+    expect(useAppStore.getState().ingredients[0].stock).toBe(10);
+
+    // Salva uma nova receita usando 5 latas (5 * 395g = 1975g)
+    deductRecipeItems([
+      { id: 'new-ri-1', ingredientId: 'ing-condensado', usedQuantity: 1975 }
+    ], 1);
+
+    // O estoque deve cair imediatamente de 10 para 5 latas!
+    expect(useAppStore.getState().ingredients[0].stock).toBe(5);
+  });
+
   test('Deve deduzir exatamente 1 lata de leite condensado ao preparar 1 receita base que consome 395g', () => {
     const { deductRecipeStock } = useStock();
 
@@ -70,7 +85,7 @@ describe('useStock Hook - Testes Rigorosos de Baixa de Estoque', () => {
     expect(useAppStore.getState().ingredients[0].stock).toBe(8);
   });
 
-  test('Deve deduzir corretamente estoque de ingredientes e embalagens ao vender/produzir um produto em lote', () => {
+  test('Deve deduzir corretamente estoque de ingredientes e embalagens ao salvar ou vender um produto doce em lote', () => {
     const { deductProductStock } = useStock();
 
     // Vender 10 potes (1 lote completo)

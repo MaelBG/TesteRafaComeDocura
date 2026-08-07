@@ -18,6 +18,7 @@ import { colors } from '../theme/colors';
 import { useAppStore, Ingredient, RecipeItem, Recipe } from '../store/useAppStore';
 import { RootStackParamList } from '../navigation/types';
 import { usePricing } from '../hooks/usePricing';
+import { useStock } from '../hooks/useStock';
 
 // Interface local apenas para gerenciar o estado da tela antes de salvar
 interface LocalRecipeItem {
@@ -39,6 +40,7 @@ export default function CreateRecipeScreen() {
   // Pegando dados e ações do Zustand e Hook de Precificação
   const { ingredients, recipes, addRecipe, updateRecipe, addIngredient } = useAppStore();
   const { getIngredientUnitCost, getRecipeTotalCost, getRecipeUnitCost } = usePricing();
+  const { deductRecipeItems } = useStock();
 
   // Estados principais da Receita
   const [recipeName, setRecipeName] = useState('');
@@ -222,7 +224,8 @@ export default function CreateRecipeScreen() {
         items: formattedItems,
         category: category.trim() || undefined
       });
-      Alert.alert('Sucesso', 'Receita atualizada!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      deductRecipeItems(formattedItems, 1);
+      Alert.alert('Sucesso', 'Receita atualizada e estoque deduzido!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } else {
       addRecipe({
         name: recipeName,
@@ -231,7 +234,8 @@ export default function CreateRecipeScreen() {
         items: formattedItems,
         category: category.trim() || undefined
       });
-      Alert.alert('Sucesso', 'Receita salva!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      deductRecipeItems(formattedItems, 1);
+      Alert.alert('Sucesso', 'Receita salva e estoque deduzido!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     }
   };
 

@@ -18,6 +18,7 @@ import { colors } from '../theme/colors';
 import { useAppStore, ProductComponent, Product, PricingProfileType } from '../store/useAppStore';
 import { RootStackParamList } from '../navigation/types';
 import { usePricing } from '../hooks/usePricing';
+import { useStock } from '../hooks/useStock';
 
 // Interface local para a tela antes de salvar
 interface LocalComponent {
@@ -49,6 +50,7 @@ export default function CreateProductScreen() {
     getProductUnitCost,
     getSuggestedPrice,
   } = usePricing();
+  const { deductProductComponents } = useStock();
 
   // Estados do Produto
   const [productName, setProductName] = useState('');
@@ -213,10 +215,12 @@ export default function CreateProductScreen() {
 
     if (productId) {
       updateProduct(productId, productPayload);
-      Alert.alert('Sucesso', 'Produto atualizado!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      deductProductComponents(formattedComponents, tempProduct.batchYieldQuantity || 1);
+      Alert.alert('Sucesso', 'Produto atualizado e estoque deduzido!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } else {
       addProduct(productPayload);
-      Alert.alert('Sucesso', 'Produto salvo!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      deductProductComponents(formattedComponents, tempProduct.batchYieldQuantity || 1);
+      Alert.alert('Sucesso', 'Produto salvo e estoque deduzido!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     }
   };
 

@@ -108,6 +108,8 @@ interface AppState {
   // Ações de Baixa de Estoque Atômicas
   deductRecipeStock: (recipeId: string, multiplier?: number) => void;
   deductProductStock: (productId: string, quantity?: number) => void;
+  deductRecipeItems: (items: RecipeItem[], multiplier?: number) => void;
+  deductProductComponents: (components: ProductComponent[], batchYield?: number) => void;
 
   // Ações Settings
   updateSettings: (settings: Partial<Settings>) => void;
@@ -385,6 +387,69 @@ export const useAppStore = create<AppState>()(
                 const newStock = Math.max(0, (pkg.stock || 0) - packagesUsed);
                 return { ...pkg, stock: parseFloat(newStock.toFixed(2)) };
               });
+            }
+          });
+
+          return {
+            ingredients: updatedIngredients,
+            packagings: updatedPackagings,
+          };
+        }),
+
+      // Dedução direta ao salvar itens de receita
+      deductRecipeItems: (items: RecipeItem[], multiplier: number = 1) =>
+        set((state) => {
+          let updatedIngredients = [...state.ingredients];
+          items.forEach((item) => {
+            updatedIngredients = updatedIngredients.map((ing) => {
+              if (ing.id !== item.ingredientId || !ing.quantity || ing.quantity <= 0) return ing;
+              const totalGramsUsed = (item.usedQuantity || 0) * multiplier;
+              const packagesUsed = totalGramsUsed / ing.quantity;
+              const newStock = Math.max(0, (ing.stock || 0) - packagesUsed);
+              return { ...ing, stock: parseFloat(newStock.toFixed(2)) };
+            });
+          });
+          return { ingredients: updatedIngredients };
+        }),
+
+      // Dedução direta ao salvar componentes de produto
+      deductProductComponents: (components: ProductComponent[], batchYield: number = 1) =>
+        set((state) => {
+          let updatedIngredients = [...state.ingredients];
+          let updatedPackagings = [...state.packagings];
+
+          components.forEach((comp) => {
+            if (comp.type === 'ingredient') {
+              updatedIngredients = updatedIngredients.map((ing) => {
+                if (ing.id !== comp.componentId || !ing.quantity || ing.quantity <= 0) return ing;
+                const totalGramsUsed = comp.usedQuantity;
+                const packagesUsed = totalGramsUsed / ing.quantity;
+                const newStock = Math.max(0, (ing.stock || 0) - packagesUsed);
+                return { ...ing, stock: parseFloat(newStock.toFixed(2)) };
+              });
+            } else if (comp.type === 'packaging') {
+              updatedPackagings = updatedPackagings.map((pkg) => {
+                if (pkg.id !== comp.componentId || !pkg.quantity || pkg.quantity <= 0) return pkg;
+                const totalUnitsUsed = comp.usedQuantity;
+                const packagesUsed = totalUnitsUsed / pkg.quantity;
+                const newStock = Math.max(0, (pkg.stock || 0) - packagesUsed);
+                return { ...pkg, stock: parseFloat(newStock.toFixed(2)) };
+              });
+            } else if (comp.type === 'recipe') {
+              const recipe = state.recipes.find((r) => r.id === comp.componentId);
+              if (recipe && recipe.yieldQuantity > 0) {
+                const recipeUsageFactor = comp.usedQuantity / recipe.yieldQuantity;
+
+                recipe.items.forEach((item) => {
+                  updatedIngredients = updatedIngredients.map((ing) => {
+                    if (ing.id !== item.ingredientId || !ing.quantity || ing.quantity <= 0) return ing;
+                    const totalGramsUsed = item.usedQuantity * recipeUsageFactor;
+                    const packagesUsed = totalGramsUsed / ing.quantity;
+                    const newStock = Math.max(0, (ing.stock || 0) - packagesUsed);
+                    return { ...ing, stock: parseFloat(newStock.toFixed(2)) };
+                  });
+                });
+              }
             }
           });
 

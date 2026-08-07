@@ -150,4 +150,63 @@ describe('usePricing Logic Tests', () => {
     const { getIngredientUnitCost } = usePricing();
     expect(getIngredientUnitCost('1')).toBe(0);
   });
+
+  test('Deve aplicar taxas adaptativas de perda e gás por perfil de doce (ex: bolo_festa)', () => {
+    mockUseAppStore.mockReturnValue({
+      ingredients: [{ id: 'i1', name: 'Ninho', price: 20, quantity: 1000, unit: 'g' }],
+      recipes: [],
+      packagings: [],
+      settings: defaultSettings,
+    });
+
+    const { getProductProductionCost } = usePricing();
+
+    const productBoloFesta: any = {
+      id: 'p1',
+      name: 'Bolo de Festa',
+      pricingProfile: 'bolo_festa', // 15% perda, 18% gás
+      productionTimeMinutes: 60,   // R$ 15 labor
+      decorationTimeMinutes: 30,   // R$ 11.25 labor (15 * 1.5 * 0.5)
+      components: [
+        { id: 'c1', componentId: 'i1', type: 'ingredient', usedQuantity: 500 } // base cost: 10.00
+      ]
+    };
+
+    // Insumos com Perda (15%): 10 * 1.15 = 11.50
+    // Indireto (18%): 11.50 * 0.18 = 2.07
+    // Mão de obra (60m + 30m art): 15 + 11.25 = 26.25
+    // Total produção: 11.50 + 2.07 + 26.25 = 39.82
+    expect(getProductProductionCost(productBoloFesta)).toBeCloseTo(39.82, 2);
+  });
+
+  test('Deve calcular o custo unitário dividindo o custo de produção do lote pela quantidade rendida (ex: 10 potes)', () => {
+    mockUseAppStore.mockReturnValue({
+      ingredients: [{ id: 'i1', name: 'Ninho', price: 20, quantity: 1000, unit: 'g' }],
+      recipes: [],
+      packagings: [{ id: 'p1', name: 'Pote 220ml', price: 20, quantity: 10, unit: 'un' }], // R$ 2.00 por pote
+      settings: defaultSettings,
+    });
+
+    const { getProductUnitCost } = usePricing();
+
+    const productBoloPote: any = {
+      id: 'pote1',
+      name: 'Bolo no Pote',
+      pricingProfile: 'bolo_pote', // 8% perda, 12% gás
+      productionTimeMinutes: 30,  // R$ 7.50 labor
+      batchYieldQuantity: 10,     // Rendeu 10 potes no lote
+      components: [
+        { id: 'c1', componentId: 'i1', type: 'ingredient', usedQuantity: 500 }, // R$ 10.00 de ingrediente no lote
+        { id: 'c2', componentId: 'p1', type: 'packaging', usedQuantity: 10 }     // 10 potes no lote (R$ 20.00 total) -> R$ 2.00/pote
+      ]
+    };
+
+    // Insumos Lote com Perda (8%): 10 * 1.08 = 10.80
+    // Indireto Lote (12%): 10.80 * 0.12 = 1.296
+    // Mão de obra Lote: 7.50
+    // Produção Total Lote: 10.80 + 1.296 + 7.50 = 19.596
+    // Produção por Pote (1/10): 1.9596
+    // Custo Final por Pote (+ R$ 2.00 Embalagem): 1.9596 + 2.00 = 3.9596
+    expect(getProductUnitCost(productBoloPote)).toBeCloseTo(3.96, 2);
+  });
 });

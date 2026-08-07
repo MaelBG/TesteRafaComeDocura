@@ -15,11 +15,37 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
 import { useAppStore, Product } from '../store/useAppStore';
 import { usePricing } from '../hooks/usePricing';
+import { useStock } from '../hooks/useStock';
 
 export default function ProductsScreen() {
   const { products, removeProduct, settings } = useAppStore();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { getProductUnitCost, getSuggestedPrice, getProductProductionCost } = usePricing();
+  const { 
+    getProductUnitCost, 
+    getSuggestedPrice, 
+    getProductProductionCost,
+    getActualMarginAndProfit,
+    getCostPerKg
+  } = usePricing();
+  const { deductProductStock } = useStock();
+
+  const handleProduceBatch = (product: Product) => {
+    const batchQty = product.batchYieldQuantity || 1;
+    Alert.alert(
+      "Registrar Produção de Lote",
+      `Deseja dar baixa automática nos ingredientes e embalagens para a produção de 1 lote (${batchQty} un) de "${product.name}"?`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { 
+          text: "Sim, dar baixa", 
+          onPress: () => {
+            deductProductStock(product.id, batchQty);
+            Alert.alert("Sucesso", "Estoque de ingredientes e embalagens atualizado com sucesso!");
+          } 
+        }
+      ]
+    );
+  };
 
   const handleRemove = (id: string) => {
     Alert.alert(
@@ -32,19 +58,40 @@ export default function ProductsScreen() {
     );
   };
 
+  const getProfileBadgeInfo = (profile?: string) => {
+    switch (profile) {
+      case 'bolo_festa': return { label: 'Bolo Festa (Kg)', icon: 'cake-layered', color: '#8E44AD' };
+      case 'brigadeiro': return { label: 'Brigadeiros', icon: 'candy', color: '#D35400' };
+      case 'bolo_pote': return { label: 'Bolo no Pote', icon: 'glass-fragile', color: '#27AE60' };
+      case 'macaron': return { label: 'Macaron/Fino', icon: 'cookie', color: '#C0392B' };
+      default: return { label: 'Padrão', icon: 'package-variant', color: colors.secondary };
+    }
+  };
+
   const renderItem = ({ item }: { item: Product }) => {
-    // Usando o hook de precificação centralizado com segurança
     const totalCost = getProductUnitCost(item) || 0;
     const productionCost = getProductProductionCost(item) || 0;
-    
     const suggestedPrice = getSuggestedPrice(item) || 0;
+    const profit = suggestedPrice - totalCost;
+    const badge = getProfileBadgeInfo(item.pricingProfile);
+    const costPerKg = item.pricingProfile === 'bolo_festa' ? getCostPerKg(item) : 0;
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, paddingRight: 8 }}>
             <Text style={styles.itemName}>{item.name || 'Sem nome'}</Text>
-            <Text style={styles.itemDescription}>Tempo montagem: {item.productionTimeMinutes || 0} min</Text>
+            <View style={styles.metaRow}>
+              <View style={[styles.profileBadge, { backgroundColor: badge.color }]}>
+                <MaterialCommunityIcons name={badge.icon as any} size={12} color={colors.white} />
+                <Text style={styles.profileBadgeText}>{badge.label}</Text>
+              </View>
+            </View>
+            <Text style={styles.itemDescription}>
+              {item.batchYieldQuantity && item.batchYieldQuantity > 1 ? `Lote: ${item.batchYieldQuantity} un | ` : ''}
+              Montagem: {item.productionTimeMinutes || 0} min
+              {item.decorationTimeMinutes ? ` | Decoração: ${item.decorationTimeMinutes} min` : ''}
+            </Text>
           </View>
           <View style={styles.actionButtons}>
             <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('CreateProduct', { productId: item.id })}>
@@ -65,21 +112,37 @@ export default function ProductsScreen() {
           <View style={styles.costColumn}>
             <Text style={styles.costLabel}>Custo Final (c/ Emb.)</Text>
             <Text style={styles.costValue}>R$ {totalCost.toFixed(2).replace('.', ',')}</Text>
+            {costPerKg > 0 && (
+              <Text style={styles.costSubValue}>R$ {costPerKg.toFixed(2).replace('.', ',')}/Kg</Text>
+            )}
           </View>
         </View>
 
         <View style={styles.priceContainer}>
           <View style={styles.priceHeader}>
-            <MaterialCommunityIcons name="tag-heart" size={20} color={colors.white} style={{ marginRight: 6 }} />
-            <Text style={styles.priceLabel}>Preço Sugerido</Text>
+            <MaterialCommunityIcons name="star-circle" size={18} color={colors.white} style={{ marginRight: 6 }} />
+            <Text style={styles.priceLabel}>Preço Recomendado de Venda</Text>
           </View>
           <View style={styles.priceFooter}>
             <Text style={styles.priceValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text>
             <View style={styles.profitBadge}>
-              <Text style={styles.profitText}>Lucro: {settings.profitMarginPercent || 0}%</Text>
+              <Text style={styles.profitBadgeText}>
+                Lucro Limpo: R$ {profit.toFixed(2).replace('.', ',')} ({settings.profitMarginPercent || 0}%)
+              </Text>
             </View>
           </View>
         </View>
+
+        <TouchableOpacity 
+          style={styles.produceBtn}
+          activeOpacity={0.8}
+          onPress={() => handleProduceBatch(item)}
+        >
+          <MaterialCommunityIcons name="chef-hat" size={18} color={colors.primary} style={{ marginRight: 6 }} />
+          <Text style={styles.produceBtnText}>
+            Dar Baixa no Estoque (Produzir Lote: {item.batchYieldQuantity || 1}un)
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -187,6 +250,38 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
+  costSubValue: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+    marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 4,
+    marginBottom: 6,
+  },
+  profileBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    gap: 4,
+    alignSelf: 'flex-start',
+  },
+  profileBadgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  profitBadgeText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
   priceContainer: {
     backgroundColor: colors.accent,
     padding: 16,
@@ -258,5 +353,22 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     marginTop: 8,
     textAlign: 'center',
+  },
+  produceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  produceBtnText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: colors.primary,
   },
 });

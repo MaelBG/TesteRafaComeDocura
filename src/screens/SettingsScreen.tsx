@@ -15,7 +15,7 @@ import { colors } from '../theme/colors';
 import { useAppStore } from '../store/useAppStore';
 
 export default function SettingsScreen() {
-  const { settings, updateSettings } = useAppStore();
+  const { settings, updateSettings, loadMockData } = useAppStore();
 
   // Estados locais para edição (populados com o valor global na montagem)
   const [hourlyRate, setHourlyRate] = useState(settings.hourlyRate.toString().replace('.', ','));
@@ -184,6 +184,31 @@ export default function SettingsScreen() {
         >
           <MaterialCommunityIcons name="content-save" size={20} color={colors.white} style={{ marginRight: 8 }} />
           <Text style={styles.saveButtonText}>Salvar Configurações</Text>
+        </TouchableOpacity>
+
+        {/* Botão Carregar Dados de Teste */}
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: colors.secondary, marginTop: 12 }]}
+          activeOpacity={0.8}
+          onPress={() => {
+            Alert.alert(
+              "Carregar Dados de Demonstração",
+              "Deseja carregar a base completa de teste (Ingredientes, Embalagens, Receitas e Doces)?",
+              [
+                { text: "Cancelar", style: "cancel" },
+                { 
+                  text: "Carregar Dados", 
+                  onPress: () => {
+                    loadMockData();
+                    Alert.alert("Sucesso", "Dados de teste carregados com sucesso!");
+                  } 
+                }
+              ]
+            );
+          }}
+        >
+          <MaterialCommunityIcons name="database-refresh" size={20} color={colors.white} style={{ marginRight: 8 }} />
+          <Text style={styles.saveButtonText}>Carregar Dados de Teste (Mock)</Text>
         </TouchableOpacity>
 
       </ScrollView>

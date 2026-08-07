@@ -18,10 +18,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAppStore, Sale } from '../store/useAppStore';
 import { usePricing } from '../hooks/usePricing';
+import { useStock } from '../hooks/useStock';
 
 export default function SalesScreen() {
-  const { sales, addSale, removeSale, products, ingredients, packagings, recipes, updateIngredient, updatePackaging } = useAppStore();
+  const { sales, addSale, removeSale, products } = useAppStore();
   const { getProductUnitCost, getSuggestedPrice } = usePricing();
+  const { deductProductStock } = useStock();
   
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
@@ -42,43 +44,8 @@ export default function SalesScreen() {
       return;
     }
 
-    // Lógica de Baixa de Estoque (agora baseada em pacotes)
-    const product = products.find(p => p.id === selectedProductId);
-    if (product) {
-      product.components.forEach(comp => {
-        const totalUsedUnits = comp.usedQuantity * parsedQuantity;
-        
-        if (comp.type === 'ingredient') {
-          const ing = ingredients.find(i => i.id === comp.componentId);
-          if (ing && ing.quantity > 0) {
-            // Converte a quantidade usada (ex: 50g) para a fração do pacote (ex: 50/1000 = 0.05 pacote)
-            const packagesUsed = totalUsedUnits / ing.quantity;
-            updateIngredient(ing.id, { stock: Math.max(0, (ing.stock || 0) - packagesUsed) });
-          }
-        } else if (comp.type === 'packaging') {
-          const pkg = packagings.find(p => p.id === comp.componentId);
-          if (pkg && pkg.quantity > 0) {
-            // Embalagens também têm quantidade por pacote (ex: pacote com 100 potes)
-            const packagesUsed = totalUsedUnits / pkg.quantity;
-            updatePackaging(pkg.id, { stock: Math.max(0, (pkg.stock || 0) - packagesUsed) });
-          }
-        } else if (comp.type === 'recipe') {
-          const recipe = recipes.find(r => r.id === comp.componentId);
-          if (recipe && recipe.yieldQuantity > 0) {
-            recipe.items.forEach(item => {
-              const ing = ingredients.find(i => i.id === item.ingredientId);
-              if (ing && ing.quantity > 0) {
-                // Cálculo: (Receita usada / rendimento) * ingredientes da receita
-                const recipeUsageFactor = totalUsedUnits / recipe.yieldQuantity;
-                const ingredientTotalUsedUnits = item.usedQuantity * recipeUsageFactor;
-                const packagesUsed = ingredientTotalUsedUnits / ing.quantity;
-                updateIngredient(ing.id, { stock: Math.max(0, (ing.stock || 0) - packagesUsed) });
-              }
-            });
-          }
-        }
-      });
-    }
+    // Lógica de Baixa de Estoque unificada via useStock
+    deductProductStock(selectedProductId, parsedQuantity);
 
     addSale({
       productId: selectedProductId,

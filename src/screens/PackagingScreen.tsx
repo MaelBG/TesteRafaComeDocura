@@ -134,30 +134,41 @@ export default function PackagingScreen() {
     setSelectedPackaging(null);
   };
 
+  const handleQuickStockDelta = (item: Packaging, delta: number) => {
+    const current = item.stock || 0;
+    const newStock = Math.max(0, parseFloat((current + delta).toFixed(2)));
+    updatePackaging(item.id, { stock: newStock });
+  };
+
   const renderItem = ({ item }: { item: Packaging }) => {
     const itemPrice = item.price || 0;
-    const itemQuantity = item.quantity || 0;
-    const costPerUnit = itemQuantity > 0 ? (itemPrice / itemQuantity).toFixed(3) : '0.000';
+    const itemQuantity = item.quantity || 1;
+    const costPerUnit = (itemPrice / itemQuantity).toFixed(3).replace('.', ',');
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
-              <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <View style={styles.metaRow}>
               {item.category ? (
                 <View style={styles.categoryBadge}>
                   <Text style={styles.categoryText}>{item.category}</Text>
                 </View>
               ) : null}
-            </View>
-            <View style={styles.stockBadge}>
-              <MaterialCommunityIcons name="archive-outline" size={12} color={colors.text} style={{ marginRight: 4 }} />
-              <Text style={styles.stockText}>Em estoque: {Math.floor(item.stock || 0)} unid.</Text>
+              <View style={styles.stockBadge}>
+                <MaterialCommunityIcons name="archive-outline" size={13} color={colors.textMuted} style={{ marginRight: 3 }} />
+                <Text style={styles.stockText}>
+                  Estoque: {((item.stock || 0) % 1 === 0 ? (item.stock || 0) : (item.stock || 0).toFixed(1)).toString().replace('.', ',')} pct(s)/unid.
+                </Text>
+              </View>
             </View>
           </View>
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => openQuickStockModal(item)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => handleQuickStockDelta(item, -1)}>
+              <MaterialCommunityIcons name="minus-circle-outline" size={24} color="#E56B6F" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => handleQuickStockDelta(item, 1)}>
               <MaterialCommunityIcons name="plus-circle" size={24} color={colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={() => handleEdit(item)}>
@@ -279,9 +290,10 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.white, borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   itemName: { fontSize: 18, fontWeight: 'bold', color: colors.text },
-  categoryBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, marginLeft: 8 },
-  categoryText: { fontSize: 10, fontWeight: 'bold', color: colors.primary, textTransform: 'uppercase' },
-  stockBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, opacity: 0.7 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  categoryBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  categoryText: { fontSize: 10, fontWeight: 'bold', color: colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
+  stockBadge: { flexDirection: 'row', alignItems: 'center', opacity: 0.8 },
   stockText: { fontSize: 12, color: colors.text, fontWeight: '500' },
   actionButtons: { flexDirection: 'row', alignItems: 'center' },
   iconButton: { padding: 6, marginLeft: 8 },
@@ -289,8 +301,8 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', alignItems: 'center', marginRight: 16, marginBottom: 8 },
   icon: { marginRight: 4, opacity: 0.7 },
   infoText: { fontSize: 15, color: colors.text },
-  costBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginLeft: 'auto' },
-  costText: { fontSize: 12, fontWeight: 'bold', color: colors.text },
+  costBadge: { backgroundColor: '#E6F4F8', borderWidth: 1, borderColor: '#B2E2F2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginLeft: 'auto' },
+  costText: { fontSize: 12, fontWeight: 'bold', color: '#1A5B70' },
   fab: { position: 'absolute', bottom: 24, right: 24, width: 60, height: 60, borderRadius: 30, backgroundColor: colors.accent, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, elevation: 10 },

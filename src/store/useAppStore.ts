@@ -37,6 +37,8 @@ export interface Recipe {
   category?: string; // NOVO
 }
 
+export type PricingProfileType = 'bolo_festa' | 'brigadeiro' | 'bolo_pote' | 'macaron' | 'padrao';
+
 export interface ProductComponent {
   id: string; // id da relação
   componentId: string; // pode ser ingredient, recipe ou package
@@ -48,6 +50,10 @@ export interface Product {
   id: string;
   name: string;
   productionTimeMinutes: number;
+  decorationTimeMinutes?: number;
+  pricingProfile?: PricingProfileType;
+  targetWeightKg?: number;
+  actualSellingPrice?: number;
   components: ProductComponent[];
 }
 

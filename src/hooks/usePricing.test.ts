@@ -150,4 +150,32 @@ describe('usePricing Logic Tests', () => {
     const { getIngredientUnitCost } = usePricing();
     expect(getIngredientUnitCost('1')).toBe(0);
   });
+
+  test('Deve aplicar taxas adaptativas de perda e gás por perfil de doce (ex: bolo_festa)', () => {
+    mockUseAppStore.mockReturnValue({
+      ingredients: [{ id: 'i1', name: 'Ninho', price: 20, quantity: 1000, unit: 'g' }],
+      recipes: [],
+      packagings: [],
+      settings: defaultSettings,
+    });
+
+    const { getProductProductionCost } = usePricing();
+
+    const productBoloFesta: any = {
+      id: 'p1',
+      name: 'Bolo de Festa',
+      pricingProfile: 'bolo_festa', // 15% perda, 18% gás
+      productionTimeMinutes: 60,   // R$ 15 labor
+      decorationTimeMinutes: 30,   // R$ 11.25 labor (15 * 1.5 * 0.5)
+      components: [
+        { id: 'c1', componentId: 'i1', type: 'ingredient', usedQuantity: 500 } // base cost: 10.00
+      ]
+    };
+
+    // Insumos com Perda (15%): 10 * 1.15 = 11.50
+    // Indireto (18%): 11.50 * 0.18 = 2.07
+    // Mão de obra (60m + 30m art): 15 + 11.25 = 26.25
+    // Total produção: 11.50 + 2.07 + 26.25 = 39.82
+    expect(getProductProductionCost(productBoloFesta)).toBeCloseTo(39.82, 2);
+  });
 });

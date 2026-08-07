@@ -15,7 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { colors } from '../theme/colors';
-import { useAppStore, ProductComponent, Product } from '../store/useAppStore';
+import { useAppStore, ProductComponent, Product, PricingProfileType } from '../store/useAppStore';
 import { RootStackParamList } from '../navigation/types';
 import { usePricing } from '../hooks/usePricing';
 
@@ -53,6 +53,11 @@ export default function CreateProductScreen() {
   // Estados do Produto
   const [productName, setProductName] = useState('');
   const [productionTimeMinutes, setProductionTimeMinutes] = useState('');
+  const [decorationTimeMinutes, setDecorationTimeMinutes] = useState('');
+  const [pricingProfile, setPricingProfile] = useState<PricingProfileType>('padrao');
+  const [targetWeightKg, setTargetWeightKg] = useState('');
+  const [actualSellingPrice, setActualSellingPrice] = useState('');
+  
   const [components, setComponents] = useState<LocalComponent[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'content' | 'packaging'>('content');
@@ -115,6 +120,10 @@ export default function CreateProductScreen() {
       if (existingProduct) {
         setProductName(existingProduct.name);
         setProductionTimeMinutes(existingProduct.productionTimeMinutes.toString().replace('.', ','));
+        if (existingProduct.pricingProfile) setPricingProfile(existingProduct.pricingProfile);
+        if (existingProduct.decorationTimeMinutes) setDecorationTimeMinutes(existingProduct.decorationTimeMinutes.toString().replace('.', ','));
+        if (existingProduct.targetWeightKg) setTargetWeightKg(existingProduct.targetWeightKg.toString().replace('.', ','));
+        if (existingProduct.actualSellingPrice) setActualSellingPrice(existingProduct.actualSellingPrice.toString().replace('.', ','));
 
         const loadedComponents = existingProduct.components.map(comp => {
           let name = 'Item removido';
@@ -160,6 +169,10 @@ export default function CreateProductScreen() {
     id: productId || 'temp',
     name: productName || '',
     productionTimeMinutes: parseFloat(productionTimeMinutes.toString().replace(',', '.')) || 0,
+    decorationTimeMinutes: parseFloat(decorationTimeMinutes.toString().replace(',', '.')) || 0,
+    pricingProfile,
+    targetWeightKg: parseFloat(targetWeightKg.toString().replace(',', '.')) || 0,
+    actualSellingPrice: parseFloat(actualSellingPrice.toString().replace(',', '.')) || 0,
     components: components.map(c => ({
       id: c.id,
       componentId: c.componentId,
@@ -171,15 +184,6 @@ export default function CreateProductScreen() {
   const productionCost = getProductProductionCost(tempProduct) || 0;
   const totalCost = getProductUnitCost(tempProduct) || 0;
   const suggestedPrice = getSuggestedPrice(tempProduct) || 0;
-  
-  const materialCost = components.reduce((acc, c) => acc + (parseFloat(c.usedQuantity.toString().replace(',', '.')) || 0) * (c.costPerUnit || 0), 0);
-  const contentsBaseCost = components.filter(c => c.type !== 'packaging').reduce((acc, c) => acc + (parseFloat(c.usedQuantity.toString().replace(',', '.')) || 0) * (c.costPerUnit || 0), 0);
-  
-  const recipeRealCost = contentsBaseCost * 1.05;
-  const indirectCostValue = recipeRealCost * (settings.fixedCostsPercent / 100);
-  const laborCostValue = getLaborCost(tempProduct.productionTimeMinutes) || 0;
-  const profitMarginPercent = settings.profitMarginPercent || 0;
-  const actualProfit = suggestedPrice - totalCost;
 
   const handleSaveProduct = () => {
     if (!productName.trim() || !productionTimeMinutes.trim()) {
@@ -187,7 +191,7 @@ export default function CreateProductScreen() {
       return;
     }
     if (components.length === 0) {
-      Alert.alert('Atenção', 'Adicione componentes.');
+      Alert.alert('Atenção', 'Adicione componentes ao produto.');
       return;
     }
 
@@ -198,11 +202,21 @@ export default function CreateProductScreen() {
       usedQuantity: parseFloat(c.usedQuantity.replace(',', '.')) || 0
     }));
 
+    const productPayload: Omit<Product, 'id'> = {
+      name: productName.trim(),
+      productionTimeMinutes: tempProduct.productionTimeMinutes,
+      decorationTimeMinutes: tempProduct.decorationTimeMinutes,
+      pricingProfile,
+      targetWeightKg: tempProduct.targetWeightKg,
+      actualSellingPrice: tempProduct.actualSellingPrice,
+      components: formattedComponents,
+    };
+
     if (productId) {
-      updateProduct(productId, { name: productName, productionTimeMinutes: tempProduct.productionTimeMinutes, components: formattedComponents });
+      updateProduct(productId, productPayload);
       Alert.alert('Sucesso', 'Produto atualizado!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } else {
-      addProduct({ name: productName, productionTimeMinutes: tempProduct.productionTimeMinutes, components: formattedComponents });
+      addProduct(productPayload);
       Alert.alert('Sucesso', 'Produto salvo!', [{ text: 'OK', onPress: () => navigation.goBack() }]);
     }
   };
@@ -249,10 +263,64 @@ export default function CreateProductScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
+            <Text style={styles.label}>Perfil de Precificação Adaptativa</Text>
+            <Text style={styles.sublabel}>Ajusta perdas e custos de energia conforme a confeção:</Text>
+            
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.profileScroll}>
+              {[
+                { id: 'padrao', label: 'Padrão', icon: 'package-variant' },
+                { id: 'bolo_festa', label: 'Bolo Festa (Kg)', icon: 'cake-layered' },
+                { id: 'brigadeiro', label: 'Brigadeiros', icon: 'candy' },
+                { id: 'bolo_pote', label: 'Bolo no Pote', icon: 'glass-fragile' },
+                { id: 'macaron', label: 'Macaron/Fino', icon: 'cookie' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[styles.profileChip, pricingProfile === item.id && styles.profileChipActive]}
+                  onPress={() => setPricingProfile(item.id as PricingProfileType)}
+                >
+                  <MaterialCommunityIcons 
+                    name={item.icon as any} 
+                    size={18} 
+                    color={pricingProfile === item.id ? colors.white : colors.text} 
+                  />
+                  <Text style={[styles.profileChipText, pricingProfile === item.id && styles.profileChipTextActive]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
             <Text style={styles.label}>Nome do Produto</Text>
             <TextInput style={styles.input} placeholder="Ex: Bolo de Pote Ninho" value={productName} onChangeText={setProductName} />
-            <Text style={styles.label}>Tempo Montagem (Minutos)</Text>
-            <TextInput style={styles.input} placeholder="Ex: 10" keyboardType="numeric" value={productionTimeMinutes} onChangeText={setProductionTimeMinutes} />
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Montagem (min)</Text>
+                <TextInput style={styles.input} placeholder="Ex: 15" keyboardType="numeric" value={productionTimeMinutes} onChangeText={(val) => setProductionTimeMinutes(val.replace(',', '.'))} />
+              </View>
+
+              {pricingProfile === 'bolo_festa' && (
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Decoração (min)</Text>
+                  <TextInput style={styles.input} placeholder="Ex: 30" keyboardType="numeric" value={decorationTimeMinutes} onChangeText={(val) => setDecorationTimeMinutes(val.replace(',', '.'))} />
+                </View>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Preço Praticado R$ (Arredondado)</Text>
+                <TextInput style={styles.input} placeholder={`Sugerido: R$ ${suggestedPrice.toFixed(2)}`} keyboardType="numeric" value={actualSellingPrice} onChangeText={(val) => setActualSellingPrice(val.replace(',', '.'))} />
+              </View>
+
+              {pricingProfile === 'bolo_festa' && (
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.label}>Peso Estimado (Kg)</Text>
+                  <TextInput style={styles.input} placeholder="Ex: 1.5" keyboardType="numeric" value={targetWeightKg} onChangeText={(val) => setTargetWeightKg(val.replace(',', '.'))} />
+                </View>
+              )}
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -276,13 +344,24 @@ export default function CreateProductScreen() {
           </View>
 
           <View style={styles.pricingCard}>
-            <View style={styles.pricingHeader}><MaterialCommunityIcons name="calculator" size={24} color={colors.white} /><Text style={styles.pricingTitle}>Preço</Text></View>
+            <View style={styles.pricingHeader}>
+              <MaterialCommunityIcons name="calculator" size={24} color={colors.white} />
+              <Text style={styles.pricingTitle}>Resumo de Precificação</Text>
+            </View>
             <View style={styles.pricingBody}>
-                <View style={styles.calcRow}><Text style={styles.calcLabel}>Material</Text><Text style={styles.calcValue}>R$ {materialCost.toFixed(2).replace('.', ',')}</Text></View>
-                <View style={styles.calcRow}><Text style={styles.calcLabel}>Mão de Obra</Text><Text style={styles.calcValue}>R$ {laborCostValue.toFixed(2).replace('.', ',')}</Text></View>
-                <View style={styles.calcRow}><Text style={styles.calcLabel}>Fixos ({settings.fixedCostsPercent}%)</Text><Text style={styles.calcValue}>R$ {indirectCostValue.toFixed(2).replace('.', ',')}</Text></View>
-                <View style={styles.divider} />
-                <View style={styles.suggestedPriceBox}><Text style={styles.suggestedLabel}>Sugerido</Text><Text style={styles.suggestedValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text><Text style={styles.profitText}>Lucro Líquido: R$ {actualProfit.toFixed(2).replace('.', ',')}</Text></View>
+              <View style={styles.calcRow}>
+                <Text style={styles.calcLabel}>Custo Produção</Text>
+                <Text style={styles.calcValue}>R$ {productionCost.toFixed(2).replace('.', ',')}</Text>
+              </View>
+              <View style={styles.calcRow}>
+                <Text style={styles.calcLabel}>Custo Final (c/ Emb.)</Text>
+                <Text style={styles.calcValue}>R$ {totalCost.toFixed(2).replace('.', ',')}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.suggestedPriceBox}>
+                <Text style={styles.suggestedLabel}>Preço Sugerido</Text>
+                <Text style={styles.suggestedValue}>R$ {suggestedPrice.toFixed(2).replace('.', ',')}</Text>
+              </View>
             </View>
           </View>
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveProduct}><Text style={styles.saveButtonText}>Salvar Produto</Text></TouchableOpacity>
@@ -359,6 +438,32 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 16, paddingBottom: 40 },
   card: { backgroundColor: colors.white, borderRadius: 12, padding: 16, marginBottom: 16, elevation: 2 },
   label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 6 },
+  sublabel: { fontSize: 12, color: colors.textMuted, marginBottom: 10 },
+  profileScroll: { flexDirection: 'row', marginBottom: 16 },
+  profileChip: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: colors.background, 
+    paddingVertical: 8, 
+    paddingHorizontal: 12, 
+    borderRadius: 20, 
+    marginRight: 8, 
+    borderWidth: 1, 
+    borderColor: colors.border,
+    gap: 6 
+  },
+  profileChipActive: { 
+    backgroundColor: colors.primary, 
+    borderColor: colors.primary 
+  },
+  profileChipText: { 
+    fontSize: 13, 
+    fontWeight: '600', 
+    color: colors.text 
+  },
+  profileChipTextActive: { 
+    color: colors.white 
+  },
   input: { backgroundColor: colors.background, borderWidth: 1, borderColor: colors.muted, borderRadius: 8, padding: 12, fontSize: 16, color: colors.text, marginBottom: 16 },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text },

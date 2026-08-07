@@ -29,7 +29,8 @@ export default function IngredientsScreen() {
   const [quantity, setQuantity] = useState('');
   const [stock, setStock] = useState('');
   const [unit, setUnit] = useState<'g' | 'ml' | 'un'>('g');
-  const [category, setCategory] = useState(''); // NOVO
+  const [category, setCategory] = useState('');
+  const [brand, setBrand] = useState('');
 
   // Estados para o Modal de Entrada Rápida
   const [quickStockModalVisible, setQuickStockModalVisible] = useState(false);
@@ -54,6 +55,7 @@ export default function IngredientsScreen() {
     if (editingId) {
       updateIngredient(editingId, {
         name,
+        brand: brand.trim() || undefined,
         price: parsedPrice,
         quantity: parsedQuantity,
         unit,
@@ -63,6 +65,7 @@ export default function IngredientsScreen() {
     } else {
       addIngredient({
         name,
+        brand: brand.trim() || undefined,
         price: parsedPrice,
         quantity: parsedQuantity,
         unit, 
@@ -77,6 +80,7 @@ export default function IngredientsScreen() {
   const handleEdit = (item: Ingredient) => {
     setEditingId(item.id);
     setName(item.name);
+    setBrand(item.brand || '');
     setPrice(item.price.toString().replace('.', ','));
     setQuantity(item.quantity.toString().replace('.', ','));
     setUnit(item.unit as 'g' | 'ml' | 'un');
@@ -99,6 +103,7 @@ export default function IngredientsScreen() {
   const openNewModal = () => {
     setEditingId(null);
     setName('');
+    setBrand('');
     setPrice('');
     setQuantity('');
     setUnit('g');
@@ -109,6 +114,7 @@ export default function IngredientsScreen() {
 
   const closeModal = () => {
     setName('');
+    setBrand('');
     setPrice('');
     setQuantity('');
     setUnit('g');
@@ -159,6 +165,11 @@ export default function IngredientsScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.itemName}>{item.name}</Text>
             <View style={styles.metaRow}>
+              {item.brand ? (
+                <View style={styles.brandBadge}>
+                  <Text style={styles.brandBadgeText}>Marca: {item.brand}</Text>
+                </View>
+              ) : null}
               {item.category ? (
                 <View style={styles.categoryBadge}>
                   <Text style={styles.categoryText}>{item.category}</Text>
@@ -191,7 +202,7 @@ export default function IngredientsScreen() {
         <View style={styles.cardBody}>
           <View style={styles.infoRow}>
             <MaterialCommunityIcons name="cash" size={16} color={colors.text} style={styles.icon} />
-            <Text style={styles.infoText}>R$ {itemPrice.toFixed(2).replace('.', ',')}</Text>
+            <Text style={styles.infoText}>R$ {itemPrice.toFixed(2).replace('.', ',')} /pacote</Text>
           </View>
           
           <View style={styles.infoRow}>
@@ -242,9 +253,12 @@ export default function IngredientsScreen() {
                 <Text style={styles.modalTitle}>{editingId ? 'Editar Ingrediente' : 'Novo Ingrediente'}</Text>
                 <TouchableOpacity onPress={closeModal}><MaterialCommunityIcons name="close" size={24} color={colors.text} /></TouchableOpacity>
               </View>
-              <Text style={styles.inputLabel}>Nome do Ingrediente</Text>
-              <TextInput style={styles.input} placeholder="Ex: Leite Moça" value={name} onChangeText={setName} />
+              <Text style={styles.inputLabel}>Nome do Ingrediente (Referência)</Text>
+              <TextInput style={styles.input} placeholder="Ex: Leite Condensado" value={name} onChangeText={setName} />
               
+              <Text style={styles.inputLabel}>Marca Atual da Compra (Opcional)</Text>
+              <TextInput style={styles.input} placeholder="Ex: Moça, Nestlé, Piracanjuba" value={brand} onChangeText={setBrand} />
+
               <Text style={styles.inputLabel}>Categoria (Opcional)</Text>
               <TextInput style={styles.input} placeholder="Ex: Laticínios, Frutas, Chocolates" value={category} onChangeText={setCategory} />
 
@@ -313,6 +327,8 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   categoryBadge: { backgroundColor: colors.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   categoryText: { fontSize: 10, fontWeight: 'bold', color: colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
+  brandBadge: { backgroundColor: '#E6F4F8', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  brandBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#1A5B70' },
   stockBadge: { flexDirection: 'row', alignItems: 'center', opacity: 0.8 },
   stockText: { fontSize: 12, color: colors.text, fontWeight: '500' },
   actionButtons: { flexDirection: 'row', alignItems: 'center' },

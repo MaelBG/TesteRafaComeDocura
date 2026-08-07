@@ -14,4 +14,5 @@ export type RootStackParamList = {
   CreateRecipe: { recipeId?: string } | undefined;
   CreateProduct: { productId?: string } | undefined;
   MarketList: undefined;
+  ProductionBatch: undefined;
 };

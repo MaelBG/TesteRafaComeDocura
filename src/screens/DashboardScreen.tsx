@@ -113,6 +113,22 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Card Especial de Balanço da Fornada */}
+        <TouchableOpacity 
+          style={styles.batchHeroBanner}
+          activeOpacity={0.85}
+          onPress={() => navigation.navigate('ProductionBatch' as any)}
+        >
+          <View style={styles.batchHeroIcon}>
+            <MaterialCommunityIcons name="scale-balance" size={28} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.batchHeroTitle}>Balanço da Fornada & Diário</Text>
+            <Text style={styles.batchHeroSub}>Calcule o lucro do dia, veja insumos gastos e baixe o estoque.</Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color={colors.primary} />
+        </TouchableOpacity>
+
         {/* Campeões de Venda */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
@@ -455,5 +471,41 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontWeight: 'bold',
     fontSize: 13,
+  },
+  batchHeroBanner: {
+    backgroundColor: '#FFF0F5',
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  batchHeroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  batchHeroTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  batchHeroSub: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
   },
 });

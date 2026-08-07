@@ -83,6 +83,36 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* Barramento de Ações Rápidas */}
+        <View style={styles.quickActionsRow}>
+          <TouchableOpacity 
+            style={[styles.quickActionBtn, { backgroundColor: colors.accent }]} 
+            onPress={() => navigation.navigate('Sales' as any)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="cash-register" size={18} color={colors.white} />
+            <Text style={styles.quickActionBtnText}>+ Venda</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.quickActionBtn, { backgroundColor: colors.secondary }]} 
+            onPress={() => navigation.navigate('Inventory' as any)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="food-apple" size={18} color={colors.white} />
+            <Text style={styles.quickActionBtnText}>+ Insumo</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.quickActionBtn, { backgroundColor: colors.primary }]} 
+            onPress={() => navigation.navigate('CreateProduct' as any)}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="cupcake" size={18} color={colors.white} />
+            <Text style={styles.quickActionBtnText}>+ Doce</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Campeões de Venda */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
@@ -399,5 +429,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.text,
     opacity: 0.7,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 10,
+  },
+  quickActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    gap: 6,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  quickActionBtnText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 13,
   },
 });

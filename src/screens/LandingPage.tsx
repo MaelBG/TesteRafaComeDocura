@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -25,11 +26,14 @@ const LandingPage: React.FC = () => {
       <StatusBar barStyle="dark-content" />
       
       <View style={styles.content}>
-        {/* Hero Section / Illustration Placeholder */}
+        {/* Hero Section / Illustration */}
         <View style={styles.heroContainer}>
           <View style={styles.circleDecoration} />
           <View style={styles.illustrationPlaceholder}>
-            <Text style={styles.illustrationText}>🍩🍰🧁</Text>
+            <Image 
+              source={require('../../assets/icon.png')} 
+              style={styles.heroImage} 
+            />
           </View>
         </View>
 
@@ -94,8 +98,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  illustrationText: {
-    fontSize: 60,
+  heroImage: {
+    width: width * 0.4,
+    height: width * 0.4,
+    resizeMode: 'contain',
   },
   textContainer: {
     paddingHorizontal: 30,

@@ -37,7 +37,7 @@ export default function CreateRecipeScreen() {
   const recipeId = route.params?.recipeId;
   
   // Pegando dados e ações do Zustand e Hook de Precificação
-  const { ingredients, recipes, addRecipe, updateRecipe } = useAppStore();
+  const { ingredients, recipes, addRecipe, updateRecipe, addIngredient } = useAppStore();
   const { getIngredientUnitCost, getRecipeTotalCost, getRecipeUnitCost } = usePricing();
 
   // Estados principais da Receita
@@ -49,6 +49,42 @@ export default function CreateRecipeScreen() {
 
   // Estados do Modal de Seleção de Ingrediente
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Estados do Cadastro Rápido de Ingrediente On-the-fly
+  const [quickIngModalVisible, setQuickIngModalVisible] = useState(false);
+  const [newIngName, setNewIngName] = useState('');
+  const [newIngPrice, setNewIngPrice] = useState('');
+  const [newIngQty, setNewIngQty] = useState('');
+  const [newIngUnit, setNewIngUnit] = useState<'g' | 'ml' | 'un'>('g');
+
+  const handleQuickCreateIngredient = () => {
+    if (!newIngName.trim() || !newIngPrice || !newIngQty) {
+      Alert.alert("Erro", "Preencha o nome, preço e quantidade do ingrediente.");
+      return;
+    }
+
+    const price = parseFloat(newIngPrice.replace(',', '.'));
+    const qty = parseFloat(newIngQty.replace(',', '.'));
+
+    if (isNaN(price) || isNaN(qty) || qty <= 0) {
+      Alert.alert("Erro", "Insira valores numéricos válidos.");
+      return;
+    }
+
+    addIngredient({
+      name: newIngName.trim(),
+      price,
+      quantity: qty,
+      unit: newIngUnit,
+      stock: 0,
+    });
+
+    setNewIngName('');
+    setNewIngPrice('');
+    setNewIngQty('');
+    setQuickIngModalVisible(false);
+    setModalVisible(true);
+  };
 
   useEffect(() => {
     if (recipeId) {
@@ -255,13 +291,104 @@ export default function CreateRecipeScreen() {
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}><Text style={styles.modalTitle}>Adicionar</Text><TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={colors.text} /></TouchableOpacity></View>
-            <ScrollView>{ingredients.map((ing) => (
-              <TouchableOpacity key={ing.id} style={styles.modalItem} onPress={() => handleOpenQuantityModal(ing)}>
-                <View style={{ flex: 1 }}><Text>{ing.name}</Text><Text style={{opacity:0.5, fontSize:12}}>{ing.quantity}{ing.unit} | Estoque: {ing.stock}un</Text></View>
-                <Text>R$ {(ing.price/ing.quantity).toFixed(3)}</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Adicionar Ingrediente</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
-            ))}</ScrollView>
+            </View>
+
+            <TouchableOpacity 
+              style={styles.quickAddBtn}
+              onPress={() => {
+                setModalVisible(false);
+                setQuickIngModalVisible(true);
+              }}
+            >
+              <MaterialCommunityIcons name="plus" size={18} color={colors.white} />
+              <Text style={styles.quickAddBtnText}>+ Cadastrar Novo Ingrediente</Text>
+            </TouchableOpacity>
+
+            <ScrollView>
+              {ingredients.length === 0 ? (
+                <Text style={{ textAlign: 'center', marginVertical: 20, color: colors.textMuted }}>
+                  Nenhum ingrediente cadastrado. Clique acima para cadastrar!
+                </Text>
+              ) : (
+                ingredients.map((ing) => (
+                  <TouchableOpacity key={ing.id} style={styles.modalItem} onPress={() => handleOpenQuantityModal(ing)}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontWeight: '600', color: colors.text }}>{ing.name}</Text>
+                      <Text style={{ opacity: 0.6, fontSize: 12, color: colors.text }}>
+                        {ing.quantity}{ing.unit} | Estoque: {ing.stock}un
+                      </Text>
+                    </View>
+                    <Text style={{ fontWeight: '600', color: colors.primary }}>
+                      R$ {(ing.price / ing.quantity).toFixed(3)}/{ing.unit}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Cadastro Rápido de Ingrediente On-the-fly */}
+      <Modal visible={quickIngModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.qtyModalContent]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Novo Ingrediente</Text>
+              <TouchableOpacity onPress={() => setQuickIngModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Nome (ex: Leite Condensado)"
+              placeholderTextColor="#999"
+              value={newIngName}
+              onChangeText={setNewIngName}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Preço (R$)"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                value={newIngPrice}
+                onChangeText={(val) => setNewIngPrice(val.replace(',', '.'))}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Quantidade embalagem"
+                placeholderTextColor="#999"
+                keyboardType="numeric"
+                value={newIngQty}
+                onChangeText={(val) => setNewIngQty(val.replace(',', '.'))}
+              />
+            </View>
+
+            <View style={styles.unitToggleRow}>
+              {(['g', 'ml', 'un'] as const).map((unit) => (
+                <TouchableOpacity
+                  key={unit}
+                  style={[styles.toggleBtn, newIngUnit === unit && styles.toggleBtnActive]}
+                  onPress={() => setNewIngUnit(unit)}
+                >
+                  <Text style={{ fontWeight: '600', color: newIngUnit === unit ? colors.primary : colors.textMuted }}>
+                    {unit}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleQuickCreateIngredient}>
+              <Text style={styles.saveButtonText}>Cadastrar e Usar</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -323,4 +450,20 @@ const styles = StyleSheet.create({
   qtyInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   bigQtyInput: { fontSize: 48, fontWeight: 'bold', color: colors.primary, textAlign: 'center', minWidth: 100 },
   bigQtyUnit: { fontSize: 24, color: colors.text, opacity: 0.5, marginLeft: 10 },
+  quickAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginBottom: 16,
+    gap: 8,
+  },
+  quickAddBtnText: {
+    color: colors.white,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
 });

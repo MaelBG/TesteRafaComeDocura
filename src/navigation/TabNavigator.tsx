@@ -5,10 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 
 import DashboardScreen from '../screens/DashboardScreen';
-import IngredientsScreen from '../screens/IngredientsScreen';
-import PackagingScreen from '../screens/PackagingScreen';
-import RecipesScreen from '../screens/RecipesScreen';
-import ProductsScreen from '../screens/ProductsScreen';
+import InventoryScreen from '../screens/InventoryScreen';
+import CatalogScreen from '../screens/CatalogScreen';
 import SalesScreen from '../screens/SalesScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 
@@ -25,19 +23,27 @@ export default function TabNavigator() {
         headerShown: true,
         headerStyle: {
           backgroundColor: colors.primary,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        headerTintColor: colors.text,
+        headerTintColor: colors.white,
         headerTitleStyle: {
           fontWeight: 'bold',
+          fontSize: 18,
         },
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: colors.white,
-          borderTopColor: colors.muted,
-          paddingBottom: insets.bottom + 5,
-          paddingTop: 5,
-          height: 60 + insets.bottom,
+          borderTopColor: colors.border,
+          borderTopWidth: 1,
+          paddingBottom: insets.bottom + 6,
+          paddingTop: 6,
+          height: 62 + insets.bottom,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
         },
       }}
     >
@@ -46,46 +52,29 @@ export default function TabNavigator() {
         component={DashboardScreen} 
         options={{
           title: 'Resumo',
+          headerTitle: 'Rafa com Doçura',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="chart-pie" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen 
-        name="Ingredients" 
-        component={IngredientsScreen} 
+        name="Inventory" 
+        component={InventoryScreen} 
         options={{
-          title: 'Despensa',
+          title: 'Estoque',
+          headerTitle: 'Gestão de Estoque & Compras',
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="food-apple" color={color} size={size} />
+            <MaterialCommunityIcons name="package-variant" color={color} size={size} />
           ),
         }}
       />
       <Tab.Screen 
-        name="Packaging" 
-        component={PackagingScreen} 
-        options={{
-          title: 'Embalagens',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="package-variant-closed" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen 
-        name="Recipes" 
-        component={RecipesScreen} 
-        options={{
-          title: 'Receitas',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="pot-mix" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tab.Screen 
-        name="Products" 
-        component={ProductsScreen} 
+        name="Catalog" 
+        component={CatalogScreen} 
         options={{
           title: 'Doces',
+          headerTitle: 'Catálogo & Receitas',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="cupcake" color={color} size={size} />
           ),
@@ -96,6 +85,7 @@ export default function TabNavigator() {
         component={SalesScreen} 
         options={{
           title: 'Vendas',
+          headerTitle: 'Registro de Vendas',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="cash-register" color={color} size={size} />
           ),
@@ -106,6 +96,7 @@ export default function TabNavigator() {
         component={SettingsScreen} 
         options={{
           title: 'Ajustes',
+          headerTitle: 'Configurações do App',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="cog" color={color} size={size} />
           ),
